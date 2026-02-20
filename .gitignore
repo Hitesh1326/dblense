@@ -1,0 +1,14 @@
+node_modules/
+dist/
+out/
+*.vsix
+.env
+.env.local
+*.log
+.DS_Store
+
+# LanceDB storage (user data, not code)
+lancedb/
+
+# Transformers.js model cache
+.cache/

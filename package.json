@@ -1,0 +1,159 @@
+{
+  "name": "dblense",
+  "displayName": "DBLens",
+  "description": "Chat with your databases using a local AI — no cloud, no data leaving your machine.",
+  "version": "0.0.1",
+  "publisher": "dblense",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "AI",
+    "Data Science",
+    "Other"
+  ],
+  "keywords": [
+    "sql",
+    "database",
+    "ollama",
+    "llm",
+    "lancedb",
+    "postgresql",
+    "mysql",
+    "sql server",
+    "local ai"
+  ],
+  "icon": "assets/icon.png",
+  "activationEvents": [
+    "onCommand:dblense.openPanel",
+    "onView:dblense-sidebar"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "dblense.openPanel",
+        "title": "DBLens: Open Panel",
+        "icon": "$(database)"
+      },
+      {
+        "command": "dblense.addConnection",
+        "title": "DBLens: Add Database Connection"
+      },
+      {
+        "command": "dblense.crawlSchema",
+        "title": "DBLens: Crawl & Index Database Schema"
+      },
+      {
+        "command": "dblense.clearIndex",
+        "title": "DBLens: Clear Vector Index"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "dblense-sidebar",
+          "title": "DBLens",
+          "icon": "assets/icon-mono.svg"
+        }
+      ]
+    },
+    "views": {
+      "dblense-sidebar": [
+        {
+          "type": "webview",
+          "id": "dblense.sidebarView",
+          "name": "DBLens"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "DBLens",
+      "properties": {
+        "dblense.ollamaBaseUrl": {
+          "type": "string",
+          "default": "http://localhost:11434",
+          "description": "Base URL for the Ollama API"
+        },
+        "dblense.ollamaModel": {
+          "type": "string",
+          "default": "llama3.1:8b",
+          "description": "Ollama model to use for summarization and chat"
+        },
+        "dblense.embeddingModel": {
+          "type": "string",
+          "default": "Xenova/all-MiniLM-L6-v2",
+          "description": "Transformers.js model for generating embeddings"
+        },
+        "dblense.lanceDbPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to LanceDB storage directory (defaults to extension globalStoragePath)"
+        },
+        "dblense.maxChunkSize": {
+          "type": "number",
+          "default": 1500,
+          "description": "Maximum token size per chunk when indexing schema objects"
+        },
+        "dblense.topK": {
+          "type": "number",
+          "default": 5,
+          "description": "Number of top results to retrieve from vector search"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build:prod",
+    "build": "npm run build:ext && npm run build:webview",
+    "build:prod": "npm run build:ext:prod && npm run build:webview:prod",
+    "build:ext": "node esbuild.extension.js",
+    "build:ext:prod": "node esbuild.extension.js --production",
+    "build:webview": "node esbuild.webview.js && npm run build:css && npm run copy:webview-html",
+    "build:webview:prod": "node esbuild.webview.js --production && npm run build:css:prod && npm run copy:webview-html",
+    "copy:webview-html": "node -e \"require('fs').mkdirSync('dist/webview',{recursive:true}); require('fs').copyFileSync('src/webview/index.html','dist/webview/index.html');\"",
+    "build:css": "tailwindcss -i src/webview/styles.css -o dist/webview/index.css",
+    "build:css:prod": "tailwindcss -i src/webview/styles.css -o dist/webview/index.css --minify",
+    "watch": "concurrently \"npm run watch:ext\" \"npm run watch:webview\" \"npm run watch:css\"",
+    "watch:ext": "node esbuild.extension.js --watch",
+    "watch:webview": "node esbuild.webview.js --watch",
+    "watch:css": "tailwindcss -i src/webview/styles.css -o dist/webview/index.css --watch",
+    "compile": "tsc --noEmit",
+    "lint": "eslint src --ext ts,tsx",
+    "pretest": "npm run compile",
+    "test": "vscode-test"
+  },
+  "dependencies": {
+    "@lancedb/lancedb": "^0.14.0",
+    "@xenova/transformers": "^2.17.2",
+    "apache-arrow": "^17.0.0",
+    "mssql": "^11.0.1",
+    "mysql2": "^3.11.5",
+    "node-sql-parser": "^5.3.0",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/forms": "^0.5.9",
+    "@types/mssql": "^9.1.5",
+    "@types/node": "^20.17.9",
+    "@types/pg": "^8.11.10",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^8.16.0",
+    "@typescript-eslint/parser": "^8.16.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.0",
+    "esbuild": "^0.24.0",
+    "esbuild-plugin-copy": "^2.1.1",
+    "eslint": "^9.16.0",
+    "postcss": "^8.4.49",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "reactflow": "^11.11.4",
+    "tailwindcss": "^3.4.16",
+    "typescript": "^5.7.2"
+  }
+}
