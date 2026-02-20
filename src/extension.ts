@@ -7,7 +7,7 @@ import { EmbeddingService } from "./embeddings/EmbeddingService";
 import { OllamaService } from "./llm/OllamaService";
 
 export function activate(context: vscode.ExtensionContext): void {
-  const connectionManager = new ConnectionManager(context.secrets);
+  const connectionManager = new ConnectionManager(context.globalState, context.secrets);
   const ollamaService = new OllamaService();
   const embeddingService = new EmbeddingService();
   const vectorStoreManager = new VectorStoreManager(context.globalStorageUri);

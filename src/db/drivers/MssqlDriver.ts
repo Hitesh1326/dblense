@@ -1,3 +1,4 @@
+import * as sql from "mssql";
 import { DbConnectionConfig, DatabaseSchema } from "../../shared/types";
 
 /**
@@ -18,7 +19,19 @@ export class MssqlDriver {
   }
 
   async testConnection(config: DbConnectionConfig, password: string): Promise<boolean> {
-    // TODO: attempt connect + simple SELECT 1
-    return false;
+    const pool = await sql.connect({
+      server: config.host,
+      port: config.port,
+      database: config.database,
+      user: config.username,
+      password,
+      options: { encrypt: config.useSsl, trustServerCertificate: true },
+    });
+    try {
+      const result = await pool.request().query("SELECT 1 AS n");
+      return result.recordset?.length === 1;
+    } finally {
+      await pool.close();
+    }
   }
 }

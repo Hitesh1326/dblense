@@ -1,7 +1,7 @@
 {
   "name": "dblense",
   "displayName": "DBLens",
-  "description": "Chat with your databases using a local AI — no cloud, no data leaving your machine.",
+  "description": "Chat with your database. Locally. Instantly.",
   "version": "0.0.1",
   "publisher": "dblense",
   "engines": {

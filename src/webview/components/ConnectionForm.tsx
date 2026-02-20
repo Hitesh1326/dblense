@@ -105,15 +105,20 @@ export function ConnectionForm({
         <Field label="Password">
           <Input type="password" value={form.password} onChange={(v) => setForm((f) => ({ ...f, password: v }))} placeholder="••••••••" />
         </Field>
-        <label className="flex items-center gap-2 text-sm cursor-pointer">
-          <input
-            type="checkbox"
-            checked={form.useSsl}
-            onChange={(e) => setForm((f) => ({ ...f, useSsl: e.target.checked }))}
-            className="rounded"
-          />
-          Use SSL
-        </label>
+        <div className="space-y-0.5">
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.useSsl}
+              onChange={(e) => setForm((f) => ({ ...f, useSsl: e.target.checked }))}
+              className="rounded"
+            />
+            Use SSL
+          </label>
+          <p className="text-xs opacity-60 pl-6">
+            Leave unchecked for local or Docker databases. Check when connecting directly to a remote server (e.g. AWS RDS) that requires encrypted connections.
+          </p>
+        </div>
 
         <button
           type="submit"

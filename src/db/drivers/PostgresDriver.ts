@@ -1,3 +1,4 @@
+import { Client } from "pg";
 import { DbConnectionConfig, DatabaseSchema } from "../../shared/types";
 
 /**
@@ -19,7 +20,20 @@ export class PostgresDriver {
   }
 
   async testConnection(config: DbConnectionConfig, password: string): Promise<boolean> {
-    // TODO: attempt connect + SELECT 1
-    return false;
+    const client = new Client({
+      host: config.host,
+      port: config.port,
+      database: config.database,
+      user: config.username,
+      password,
+      ssl: config.useSsl ? { rejectUnauthorized: false } : false,
+    });
+    try {
+      await client.connect();
+      const result = await client.query("SELECT 1");
+      return result.rowCount === 1;
+    } finally {
+      await client.end();
+    }
   }
 }
