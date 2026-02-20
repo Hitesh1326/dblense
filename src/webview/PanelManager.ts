@@ -55,7 +55,7 @@ export class PanelManager {
 
     this.panel.webview.onDidReceiveMessage(
       (message: WebviewToExtensionMessage) => {
-        this.messageRouter.handle(message, (msg) => {
+        void this.messageRouter.handle(message, (msg) => {
           this.panel?.webview.postMessage(msg);
         });
       },
@@ -90,7 +90,7 @@ export class PanelManager {
 
         webviewView.webview.onDidReceiveMessage(
           (message: WebviewToExtensionMessage) => {
-            this.messageRouter.handle(message, (msg) => {
+            void this.messageRouter.handle(message, (msg) => {
               webviewView.webview.postMessage(msg);
             });
           },

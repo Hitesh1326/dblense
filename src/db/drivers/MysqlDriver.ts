@@ -1,3 +1,4 @@
+import * as mysql from "mysql2/promise";
 import { DbConnectionConfig, DatabaseSchema } from "../../shared/types";
 
 /**
@@ -19,7 +20,19 @@ export class MysqlDriver {
   }
 
   async testConnection(config: DbConnectionConfig, password: string): Promise<boolean> {
-    // TODO: attempt connect + SELECT 1
-    return false;
+    const conn = await mysql.createConnection({
+      host: config.host,
+      port: config.port,
+      database: config.database,
+      user: config.username,
+      password,
+      ssl: config.useSsl ? {} : undefined,
+    });
+    try {
+      const [rows] = await conn.execute("SELECT 1 AS n");
+      return Array.isArray(rows) && rows.length === 1;
+    } finally {
+      await conn.end();
+    }
   }
 }

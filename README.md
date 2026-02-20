@@ -1,8 +1,16 @@
 # DBLens
 
-Chat with your databases using a local AI — no cloud, no data leaving your machine.
+**Chat with your database. Locally. Instantly.**
 
-A VS Code extension that connects to SQL Server, PostgreSQL, and MySQL, indexes schema and stored procedures with a local Ollama LLM and Transformers.js embeddings, stores them in LanceDB, and lets you ask questions in natural language inside VS Code.
+DBLens is a local-first VS Code extension that helps developers understand complex database schemas and legacy business logic buried in stored procedures — without sending a single byte to the cloud.
+
+Connect to SQL Server, PostgreSQL, or MySQL. DBLens crawls your schema, reads your stored procedures, and uses a local AI model to generate plain-English summaries of what your business logic actually does. Then ask it anything.
+
+- *"What does this billing procedure actually do?"*
+- *"Which stored procedures touch the orders table?"*
+- *"How do these two databases talk to each other?"*
+
+Everything runs on your machine. Your credentials stay in VS Code. Your data never leaves.
 
 ## Prerequisites
 
@@ -31,6 +39,16 @@ npm run build
 - `src/embeddings/` — Transformers.js embeddings
 - `src/vectorstore/` — LanceDB index
 - `src/webview/` — React UI (Tailwind, ReactFlow)
+
+## Implementation pipeline
+
+1. **Schema crawler** — Reads DB metadata (tables, columns, stored procedure definitions). Produces structured schema for the rest of the pipeline.
+2. **OllamaService** — Local LLM: summarizes schema/procedure text; later streams chat replies.
+3. **EmbeddingService** — Transformers.js: text → vectors for semantic search.
+4. **VectorStoreManager** — LanceDB: store and search chunks by embedding.
+5. **Indexer** — Chunk crawl output → summarize (Ollama) → embed → upsert to vector store. **Progress reporting is built in from day one:** while indexing (e.g. 300+ stored procedures), the UI must show live progress such as *"Summarizing SP 47 of 312..."*. The Indexer accepts a progress callback and the MessageRouter streams `CRAWL_PROGRESS` to the webview; do not add progress as an afterthought.
+6. **Chat RAG** — Embed question → vector search → build prompt with retrieved chunks → stream answer via Ollama.
+7. **SchemaGraph** — Optional: visual map of tables and relationships (ReactFlow).
 
 ## License
 

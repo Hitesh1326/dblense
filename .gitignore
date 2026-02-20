@@ -12,3 +12,6 @@ lancedb/
 
 # Transformers.js model cache
 .cache/
+
+# Local helper scripts (Docker, restore, etc.)
+scripts/
