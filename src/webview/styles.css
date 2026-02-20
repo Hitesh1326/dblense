@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* VS Code CSS variable bridge — lets Tailwind-styled components respect the
+   active VS Code theme automatically. */
+:root {
+  --vscode-font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
+}
+
+body {
+  font-family: var(--vscode-font-family, -apple-system, sans-serif);
+  font-size: var(--vscode-font-size, 13px);
+  background-color: var(--vscode-editor-background);
+  color: var(--vscode-foreground);
+  margin: 0;
+  padding: 0;
+}
+
+/* Scrollbar styling to match VS Code */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--vscode-scrollbarSlider-hoverBackground);
+}

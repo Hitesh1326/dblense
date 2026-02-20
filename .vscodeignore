@@ -1,0 +1,15 @@
+.vscode/**
+.vscode-test/**
+src/**
+out/**
+node_modules/**
+.gitignore
+.eslintrc.json
+esbuild.extension.js
+esbuild.webview.js
+tailwind.config.js
+postcss.config.js
+tsconfig.json
+**/*.map
+**/*.ts
+!dist/**
