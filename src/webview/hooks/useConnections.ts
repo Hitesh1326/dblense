@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
-import { DbConnectionConfig } from "../../shared/types";
+import { DbConnectionConfig, CrawlProgress } from "../../shared/types";
 import { postMessage, onMessage } from "../vscodeApi";
 
 interface UseConnectionsReturn {
   connections: DbConnectionConfig[];
+  crawledConnectionIds: string[];
+  crawlProgress: CrawlProgress | null;
   addConnection: (config: DbConnectionConfig & { password: string }) => void;
   removeConnection: (id: string) => void;
   testConnection: (id: string) => void;
@@ -12,6 +14,8 @@ interface UseConnectionsReturn {
 
 export function useConnections(): UseConnectionsReturn {
   const [connections, setConnections] = useState<DbConnectionConfig[]>([]);
+  const [crawledConnectionIds, setCrawledConnectionIds] = useState<string[]>([]);
+  const [crawlProgress, setCrawlProgress] = useState<CrawlProgress | null>(null);
 
   useEffect(() => {
     postMessage({ type: "GET_CONNECTIONS" });
@@ -26,6 +30,17 @@ export function useConnections(): UseConnectionsReturn {
           break;
         case "CONNECTION_REMOVED":
           setConnections((prev) => prev.filter((c) => c.id !== message.payload.id));
+          setCrawledConnectionIds((prev) => prev.filter((id) => id !== message.payload.id));
+          break;
+        case "CRAWLED_CONNECTION_IDS":
+          setCrawledConnectionIds(message.payload);
+          break;
+        case "CRAWL_PROGRESS":
+          setCrawlProgress(message.payload);
+          break;
+        case "CRAWL_COMPLETE":
+        case "CRAWL_ERROR":
+          setCrawlProgress(null);
           break;
       }
     });
@@ -49,5 +64,5 @@ export function useConnections(): UseConnectionsReturn {
     postMessage({ type: "CRAWL_SCHEMA", payload: { id } });
   }, []);
 
-  return { connections, addConnection, removeConnection, testConnection, crawlSchema };
+  return { connections, crawledConnectionIds, crawlProgress, addConnection, removeConnection, testConnection, crawlSchema };
 }

@@ -3,6 +3,7 @@ import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
 import { ConnectionManager } from "../db/ConnectionManager";
+import { SchemaService } from "../db/SchemaService";
 import { OllamaService } from "../llm/OllamaService";
 import { EmbeddingService } from "../embeddings/EmbeddingService";
 import { VectorStoreManager } from "../vectorstore/VectorStoreManager";
@@ -11,6 +12,7 @@ import { WebviewToExtensionMessage } from "../shared/types";
 
 interface Services {
   connectionManager: ConnectionManager;
+  schemaService: SchemaService;
   ollamaService: OllamaService;
   embeddingService: EmbeddingService;
   vectorStoreManager: VectorStoreManager;
