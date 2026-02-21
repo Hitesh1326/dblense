@@ -1,18 +1,30 @@
 import React from "react";
+import { IndexFirstCard } from "./IndexFirstCard";
 
 interface SchemaGraphProps {
   connectionId: string | null;
+  isCrawled: boolean;
+  onCrawl: () => void;
+  isCrawling: boolean;
 }
 
 /**
  * Renders an interactive ReactFlow graph of the database schema.
  * Tables are nodes; foreign-key relationships are edges.
  */
-export function SchemaGraph({ connectionId }: SchemaGraphProps) {
+export function SchemaGraph({ connectionId, isCrawled, onCrawl, isCrawling }: SchemaGraphProps) {
   if (!connectionId) {
     return (
       <div className="flex items-center justify-center h-full opacity-40 text-sm">
         Select a database connection to view its schema graph.
+      </div>
+    );
+  }
+
+  if (!isCrawled) {
+    return (
+      <div className="flex flex-col h-full">
+        <IndexFirstCard onCrawl={onCrawl} isCrawling={isCrawling} />
       </div>
     );
   }

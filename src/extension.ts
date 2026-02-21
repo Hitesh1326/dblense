@@ -2,17 +2,20 @@ import * as vscode from "vscode";
 import { registerCommands } from "./commands";
 import { PanelManager } from "./webview/PanelManager";
 import { ConnectionManager } from "./db/ConnectionManager";
+import { SchemaService } from "./db/SchemaService";
 import { VectorStoreManager } from "./vectorstore/VectorStoreManager";
 import { EmbeddingService } from "./embeddings/EmbeddingService";
 import { OllamaService } from "./llm/OllamaService";
 
 export function activate(context: vscode.ExtensionContext): void {
   const connectionManager = new ConnectionManager(context.globalState, context.secrets);
+  const schemaService = new SchemaService();
   const ollamaService = new OllamaService();
   const embeddingService = new EmbeddingService();
   const vectorStoreManager = new VectorStoreManager(context.globalStorageUri);
   const panelManager = new PanelManager(context, {
     connectionManager,
+    schemaService,
     ollamaService,
     embeddingService,
     vectorStoreManager,

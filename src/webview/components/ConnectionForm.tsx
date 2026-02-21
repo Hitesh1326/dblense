@@ -1,12 +1,10 @@
 import React, { useState } from "react";
-import { DbConnectionConfig, DbDriver } from "../../shared/types";
+import { DbDriver } from "../../shared/types";
+import type { DbConnectionConfig } from "../../shared/types";
 import { randomId } from "../utils/randomId";
 
 interface ConnectionFormProps {
-  connections: DbConnectionConfig[];
   onAdd: (config: DbConnectionConfig & { password: string }) => void;
-  onTest: (id: string) => void;
-  onRemove: (id: string) => void;
 }
 
 const DEFAULT_PORTS: Record<DbDriver, number> = {
@@ -15,12 +13,7 @@ const DEFAULT_PORTS: Record<DbDriver, number> = {
   mysql: 3306,
 };
 
-export function ConnectionForm({
-  connections,
-  onAdd,
-  onTest,
-  onRemove,
-}: ConnectionFormProps) {
+export function ConnectionForm({ onAdd }: ConnectionFormProps) {
   const [form, setForm] = useState<{
     label: string;
     driver: DbDriver;
@@ -61,9 +54,7 @@ export function ConnectionForm({
   };
 
   return (
-    <div className="p-4 max-w-lg space-y-6">
-      <h2 className="text-base font-semibold">Add Connection</h2>
-
+    <div className="max-w-lg space-y-4">
       <form onSubmit={handleSubmit} className="space-y-3">
         {/* Driver selector */}
         <div className="flex gap-2">
@@ -127,26 +118,6 @@ export function ConnectionForm({
           Add Connection
         </button>
       </form>
-
-      {/* Existing connections */}
-      {connections.length > 0 && (
-        <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wider opacity-50 mb-2">
-            Existing Connections
-          </h3>
-          <ul className="space-y-1">
-            {connections.map((c) => (
-              <li key={c.id} className="flex items-center justify-between text-sm px-2 py-1.5 rounded hover:bg-vscode-list-hoverBackground">
-                <span className="truncate">{c.label}</span>
-                <div className="flex gap-2 shrink-0">
-                  <button onClick={() => onTest(c.id)} className="text-xs opacity-60 hover:opacity-100">Test</button>
-                  <button onClick={() => onRemove(c.id)} className="text-xs opacity-60 hover:opacity-100 text-red-400">Remove</button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, KeyboardEvent } from "react";
 import { ChatMessage } from "../../shared/types";
+import { IndexFirstCard } from "./IndexFirstCard";
 
 interface ChatPanelProps {
   messages: ChatMessage[];
@@ -7,6 +8,9 @@ interface ChatPanelProps {
   onSend: (text: string) => void;
   onClear: () => void;
   connectionId: string | null;
+  isCrawled: boolean;
+  onCrawl: () => void;
+  isCrawling: boolean;
 }
 
 export function ChatPanel({
@@ -15,6 +19,9 @@ export function ChatPanel({
   onSend,
   onClear,
   connectionId,
+  isCrawled,
+  onCrawl,
+  isCrawling,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -36,6 +43,14 @@ export function ChatPanel({
       handleSend();
     }
   };
+
+  if (connectionId && !isCrawled) {
+    return (
+      <div className="flex flex-col h-full">
+        <IndexFirstCard onCrawl={onCrawl} isCrawling={isCrawling} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full">
