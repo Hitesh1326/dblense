@@ -6,6 +6,7 @@ import { SchemaGraph } from "./components/SchemaGraph";
 import { AddConnectionModal } from "./components/AddConnectionModal";
 import { useConnections } from "./hooks/useConnections";
 import { useChat } from "./hooks/useChat";
+import { useOllamaStatus } from "./hooks/useOllamaStatus";
 
 export function App() {
   const [activeView, setActiveView] = useState<MainView>("chat");
@@ -15,6 +16,8 @@ export function App() {
   const { connections, crawledConnectionIds, crawlProgress, addConnection, removeConnection, testConnection, crawlSchema } =
     useConnections();
   const { messages, sendMessage, isStreaming, clearHistory } = useChat(activeConnectionId);
+  const { available: ollamaAvailable, model: ollamaModel, modelPulled: ollamaModelPulled, check: checkOllama } =
+    useOllamaStatus();
 
   const isActiveCrawled = activeConnectionId !== null && crawledConnectionIds.includes(activeConnectionId);
   const isActiveCrawling = crawlProgress !== null && crawlProgress.connectionId === activeConnectionId;
@@ -58,6 +61,10 @@ export function App() {
                 isCrawled={isActiveCrawled}
                 onCrawl={() => activeConnectionId && crawlSchema(activeConnectionId)}
                 isCrawling={isActiveCrawling}
+                ollamaAvailable={ollamaAvailable}
+                ollamaModel={ollamaModel}
+                ollamaModelPulled={ollamaModelPulled}
+                onCheckOllama={checkOllama}
               />
             )}
             {activeView === "schema" && (
@@ -66,6 +73,10 @@ export function App() {
                 isCrawled={isActiveCrawled}
                 onCrawl={() => activeConnectionId && crawlSchema(activeConnectionId)}
                 isCrawling={isActiveCrawling}
+                ollamaAvailable={ollamaAvailable}
+                ollamaModel={ollamaModel}
+                ollamaModelPulled={ollamaModelPulled}
+                onCheckOllama={checkOllama}
               />
             )}
           </div>

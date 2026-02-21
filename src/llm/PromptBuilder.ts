@@ -4,9 +4,12 @@ import { SchemaChunk, ChatMessage } from "../shared/types";
  * Builds structured prompts for summarization and RAG chat.
  */
 export class PromptBuilder {
-  buildSummarizationPrompt(objectType: string, objectName: string, ddl: string): string {
-    // TODO: craft a concise summarization prompt for the given schema object
-    return "";
+  /**
+   * Format schema object content for the summarization model.
+   * Prefix with type and name so the model knows what it is summarizing.
+   */
+  buildSummarizationPrompt(objectType: string, objectName: string, content: string): string {
+    return `[${objectType}] ${objectName}\n\n${content}`;
   }
 
   buildRagSystemPrompt(chunks: SchemaChunk[], databaseName: string): string {

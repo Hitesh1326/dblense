@@ -4,7 +4,7 @@ let outputChannel: vscode.OutputChannel | undefined;
 
 function getChannel(): vscode.OutputChannel {
   if (!outputChannel) {
-    outputChannel = vscode.window.createOutputChannel("DBLens");
+    outputChannel = vscode.window.createOutputChannel("SchemaSight");
   }
   return outputChannel;
 }

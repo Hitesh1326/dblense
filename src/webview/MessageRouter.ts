@@ -4,10 +4,24 @@ import { SchemaService } from "../db/SchemaService";
 import { OllamaService } from "../llm/OllamaService";
 import { EmbeddingService } from "../embeddings/EmbeddingService";
 import { VectorStoreManager } from "../vectorstore/VectorStoreManager";
+import { Indexer } from "../vectorstore/Indexer";
+import { logger } from "../utils/logger";
 import {
   WebviewToExtensionMessage,
   ExtensionToWebviewMessage,
 } from "../shared/types";
+
+function isOllamaUnreachableError(error: string): boolean {
+  const lower = error.toLowerCase();
+  return (
+    lower.includes("fetch") ||
+    lower.includes("econnrefused") ||
+    lower.includes("11434") ||
+    lower.includes("ollama") ||
+    lower.includes("network") ||
+    lower.includes("failed to fetch")
+  );
+}
 
 type PostMessage = (message: ExtensionToWebviewMessage) => void;
 
@@ -17,6 +31,7 @@ interface Services {
   ollamaService: OllamaService;
   embeddingService: EmbeddingService;
   vectorStoreManager: VectorStoreManager;
+  indexer: Indexer;
 }
 
 /**
@@ -57,10 +72,21 @@ export class MessageRouter {
             },
           });
           if (result.success) {
-            vscode.window.showInformationMessage("DBLens: Connection successful.");
+            vscode.window.showInformationMessage("SchemaSight: Connection successful.");
           } else {
-            vscode.window.showErrorMessage(`DBLens: Connection failed. ${result.error ?? "Unknown error"}`);
+            vscode.window.showErrorMessage(`SchemaSight: Connection failed. ${result.error ?? "Unknown error"}`);
           }
+          break;
+        }
+        case "GET_OLLAMA_STATUS": {
+          const available = await this.services.ollamaService.isAvailable();
+          let model: string | undefined;
+          let modelPulled: boolean | undefined;
+          if (available) {
+            model = this.services.ollamaService.getModelName();
+            modelPulled = await this.services.ollamaService.isModelPulled();
+          }
+          post({ type: "OLLAMA_STATUS", payload: { available, model, modelPulled } });
           break;
         }
         case "CRAWL_SCHEMA": {
@@ -76,18 +102,28 @@ export class MessageRouter {
             break;
           }
           try {
-            await this.services.schemaService.crawl(config, password, (progress) => {
+            const schema = await this.services.schemaService.crawl(config, password, (progress) => {
+              post({ type: "CRAWL_PROGRESS", payload: progress });
+            });
+            await this.services.indexer.index(schema, (progress) => {
               post({ type: "CRAWL_PROGRESS", payload: progress });
             });
             await this.services.connectionManager.addCrawledConnectionId(connectionId);
             const crawledIds = await this.services.connectionManager.getCrawledConnectionIds();
             post({ type: "CRAWL_COMPLETE", payload: { connectionId } });
             post({ type: "CRAWLED_CONNECTION_IDS", payload: crawledIds });
-            vscode.window.showInformationMessage("DBLens: Schema crawl complete.");
+            vscode.window.showInformationMessage("SchemaSight: Schema crawl and index complete.");
           } catch (err) {
             const error = err instanceof Error ? err.message : String(err);
+            logger.error("Crawl failed", err);
             post({ type: "CRAWL_ERROR", payload: { connectionId, error } });
-            vscode.window.showErrorMessage(`DBLens: Crawl failed. ${error}`);
+            if (isOllamaUnreachableError(error)) {
+              vscode.window.showErrorMessage(
+                "SchemaSight: Couldn't reach Ollama. Is it running? Start it (e.g. ollama serve) and try again. See Output → SchemaSight for details."
+              );
+            } else {
+              vscode.window.showErrorMessage(`SchemaSight: Crawl failed. See Output → SchemaSight for details.`);
+            }
           }
           break;
         }

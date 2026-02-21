@@ -87,12 +87,14 @@ export type WebviewToExtensionMessage =
   | { type: "REMOVE_CONNECTION"; payload: { id: string } }
   | { type: "TEST_CONNECTION"; payload: { id: string } }
   | { type: "CRAWL_SCHEMA"; payload: { id: string } }
+  | { type: "GET_OLLAMA_STATUS" }
   | { type: "CHAT"; payload: { connectionId: string; message: string; history: ChatMessage[] } }
   | { type: "GET_CRAWL_STATUS"; payload: { connectionId: string } }
   | { type: "CLEAR_INDEX"; payload: { connectionId: string } };
 
 export type ExtensionToWebviewMessage =
   | { type: "CONNECTIONS_LIST"; payload: DbConnectionConfig[] }
+  | { type: "OLLAMA_STATUS"; payload: { available: boolean; model?: string; modelPulled?: boolean } }
   | { type: "CONNECTION_ADDED"; payload: DbConnectionConfig }
   | { type: "CONNECTION_REMOVED"; payload: { id: string } }
   | { type: "CONNECTION_TEST_RESULT"; payload: { id: string; success: boolean; error?: string } }

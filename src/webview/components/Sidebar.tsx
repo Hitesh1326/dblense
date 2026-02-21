@@ -25,6 +25,17 @@ function formatCrawlPhase(progress: CrawlProgress): string {
       ? `Stored procedures ${progress.current}/${progress.total}${progress.currentObject ? ` — ${progress.currentObject}` : ""}`
       : "Crawling stored procedures…";
   }
+  if (progress.phase === "summarizing") {
+    return progress.total > 0
+      ? `Summarizing ${progress.current}/${progress.total}${progress.currentObject ? ` — ${progress.currentObject}` : ""}`
+      : "Summarizing…";
+  }
+  if (progress.phase === "embedding") {
+    return progress.total > 0
+      ? `Embedding ${progress.current}/${progress.total}`
+      : "Embedding…";
+  }
+  if (progress.phase === "storing") return "Storing…";
   return `${progress.phase}…`;
 }
 

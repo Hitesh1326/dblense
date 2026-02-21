@@ -11,6 +11,10 @@ interface ChatPanelProps {
   isCrawled: boolean;
   onCrawl: () => void;
   isCrawling: boolean;
+  ollamaAvailable: boolean | null;
+  ollamaModel: string | null;
+  ollamaModelPulled: boolean | null;
+  onCheckOllama?: () => void;
 }
 
 export function ChatPanel({
@@ -22,6 +26,10 @@ export function ChatPanel({
   isCrawled,
   onCrawl,
   isCrawling,
+  ollamaAvailable,
+  ollamaModel,
+  ollamaModelPulled,
+  onCheckOllama,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -47,7 +55,14 @@ export function ChatPanel({
   if (connectionId && !isCrawled) {
     return (
       <div className="flex flex-col h-full">
-        <IndexFirstCard onCrawl={onCrawl} isCrawling={isCrawling} />
+        <IndexFirstCard
+          onCrawl={onCrawl}
+          isCrawling={isCrawling}
+          ollamaAvailable={ollamaAvailable}
+          ollamaModel={ollamaModel}
+          ollamaModelPulled={ollamaModelPulled}
+          onCheckOllama={onCheckOllama}
+        />
       </div>
     );
   }
