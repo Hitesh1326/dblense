@@ -1,10 +1,10 @@
-# DBLens
+# SchemaSight
 
 **Chat with your database. Locally. Instantly.**
 
-DBLens is a local-first VS Code extension that helps developers understand complex database schemas and legacy business logic buried in stored procedures — without sending a single byte to the cloud.
+SchemaSight is a local-first VS Code extension that helps developers understand complex database schemas and legacy business logic buried in stored procedures — without sending a single byte to the cloud.
 
-Connect to SQL Server, PostgreSQL, or MySQL. DBLens crawls your schema, reads your stored procedures, and uses a local AI model to generate plain-English summaries of what your business logic actually does. Then ask it anything.
+Connect to SQL Server, PostgreSQL, or MySQL. SchemaSight crawls your schema, reads your stored procedures, and uses a local AI model to generate plain-English summaries of what your business logic actually does. Then ask it anything.
 
 - *"What does this billing procedure actually do?"*
 - *"Which stored procedures touch the orders table?"*
@@ -29,7 +29,7 @@ npm run build
 
 1. Open this folder in VS Code.
 2. Press **F5** to launch the Extension Development Host.
-3. Click the DBLens icon in the activity bar or run **DBLens: Open Panel** from the command palette.
+3. Click the SchemaSight icon in the activity bar or run **SchemaSight: Open Panel** from the command palette.
 
 ## Project structure
 

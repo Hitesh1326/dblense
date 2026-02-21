@@ -7,6 +7,7 @@ import { SchemaService } from "../db/SchemaService";
 import { OllamaService } from "../llm/OllamaService";
 import { EmbeddingService } from "../embeddings/EmbeddingService";
 import { VectorStoreManager } from "../vectorstore/VectorStoreManager";
+import { Indexer } from "../vectorstore/Indexer";
 import { MessageRouter } from "./MessageRouter";
 import { WebviewToExtensionMessage } from "../shared/types";
 
@@ -16,6 +17,7 @@ interface Services {
   ollamaService: OllamaService;
   embeddingService: EmbeddingService;
   vectorStoreManager: VectorStoreManager;
+  indexer: Indexer;
 }
 
 /**
@@ -40,8 +42,8 @@ export class PanelManager {
     }
 
     this.panel = vscode.window.createWebviewPanel(
-      "dblense.panel",
-      "DBLens",
+      "schemasight.panel",
+      "SchemaSight",
       vscode.ViewColumn.One,
       {
         enableScripts: true,

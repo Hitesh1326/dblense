@@ -3,9 +3,9 @@ import { DbConnectionConfig } from "../shared/types";
 import { getDriver } from "./drivers";
 import { logger } from "../utils/logger";
 
-const CONNECTIONS_KEY = "dblense.connections";
-const CRAWLED_IDS_KEY = "dblense.crawledConnectionIds";
-const PASSWORD_KEY_PREFIX = "dblense.password.";
+const CONNECTIONS_KEY = "schemasight.connections";
+const CRAWLED_IDS_KEY = "schemasight.crawledConnectionIds";
+const PASSWORD_KEY_PREFIX = "schemasight.password.";
 
 /**
  * Persists connection configs in VS Code globalState.

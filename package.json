@@ -1,9 +1,9 @@
 {
-  "name": "dblense",
-  "displayName": "DBLens",
+  "name": "schemasight",
+  "displayName": "SchemaSight",
   "description": "Chat with your database. Locally. Instantly.",
   "version": "0.0.1",
-  "publisher": "dblense",
+  "publisher": "schemasight",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -25,77 +25,77 @@
   ],
   "icon": "assets/icon.png",
   "activationEvents": [
-    "onCommand:dblense.openPanel",
-    "onView:dblense-sidebar"
+    "onCommand:schemasight.openPanel",
+    "onView:schemasight-sidebar"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "dblense.openPanel",
-        "title": "DBLens: Open Panel",
+        "command": "schemasight.openPanel",
+        "title": "SchemaSight: Open Panel",
         "icon": "$(database)"
       },
       {
-        "command": "dblense.addConnection",
-        "title": "DBLens: Add Database Connection"
+        "command": "schemasight.addConnection",
+        "title": "SchemaSight: Add Database Connection"
       },
       {
-        "command": "dblense.crawlSchema",
-        "title": "DBLens: Crawl & Index Database Schema"
+        "command": "schemasight.crawlSchema",
+        "title": "SchemaSight: Crawl & Index Database Schema"
       },
       {
-        "command": "dblense.clearIndex",
-        "title": "DBLens: Clear Vector Index"
+        "command": "schemasight.clearIndex",
+        "title": "SchemaSight: Clear Vector Index"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "dblense-sidebar",
-          "title": "DBLens",
+          "id": "schemasight-sidebar",
+          "title": "SchemaSight",
           "icon": "assets/icon-mono.svg"
         }
       ]
     },
     "views": {
-      "dblense-sidebar": [
+      "schemasight-sidebar": [
         {
           "type": "webview",
-          "id": "dblense.sidebarView",
-          "name": "DBLens"
+          "id": "schemasight.sidebarView",
+          "name": "SchemaSight"
         }
       ]
     },
     "configuration": {
-      "title": "DBLens",
+      "title": "SchemaSight",
       "properties": {
-        "dblense.ollamaBaseUrl": {
+        "schemasight.ollamaBaseUrl": {
           "type": "string",
           "default": "http://localhost:11434",
           "description": "Base URL for the Ollama API"
         },
-        "dblense.ollamaModel": {
+        "schemasight.ollamaModel": {
           "type": "string",
           "default": "llama3.1:8b",
-          "description": "Ollama model to use for summarization and chat"
+          "description": "Ollama model for summarization and chat. Pull it first, e.g. ollama pull llama3.1:8b"
         },
-        "dblense.embeddingModel": {
+        "schemasight.embeddingModel": {
           "type": "string",
           "default": "Xenova/all-MiniLM-L6-v2",
           "description": "Transformers.js model for generating embeddings"
         },
-        "dblense.lanceDbPath": {
+        "schemasight.lanceDbPath": {
           "type": "string",
           "default": "",
           "description": "Path to LanceDB storage directory (defaults to extension globalStoragePath)"
         },
-        "dblense.maxChunkSize": {
+        "schemasight.maxChunkSize": {
           "type": "number",
           "default": 1500,
           "description": "Maximum token size per chunk when indexing schema objects"
         },
-        "dblense.topK": {
+        "schemasight.topK": {
           "type": "number",
           "default": 5,
           "description": "Number of top results to retrieve from vector search"

@@ -10,20 +10,20 @@ export function registerCommands(
   vectorStoreManager: VectorStoreManager
 ): void {
   context.subscriptions.push(
-    vscode.commands.registerCommand("dblense.openPanel", () => {
+    vscode.commands.registerCommand("schemasight.openPanel", () => {
       panelManager.openOrReveal();
     }),
 
-    vscode.commands.registerCommand("dblense.addConnection", () => {
+    vscode.commands.registerCommand("schemasight.addConnection", () => {
       panelManager.openOrReveal();
       // Panel will handle the add-connection flow via webview UI
     }),
 
-    vscode.commands.registerCommand("dblense.crawlSchema", async () => {
+    vscode.commands.registerCommand("schemasight.crawlSchema", async () => {
       // TODO: prompt user to pick a connection then trigger crawl
     }),
 
-    vscode.commands.registerCommand("dblense.clearIndex", async () => {
+    vscode.commands.registerCommand("schemasight.clearIndex", async () => {
       // TODO: prompt user to pick a connection then clear its index
     })
   );

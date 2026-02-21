@@ -6,13 +6,26 @@ interface SchemaGraphProps {
   isCrawled: boolean;
   onCrawl: () => void;
   isCrawling: boolean;
+  ollamaAvailable: boolean | null;
+  ollamaModel: string | null;
+  ollamaModelPulled: boolean | null;
+  onCheckOllama?: () => void;
 }
 
 /**
  * Renders an interactive ReactFlow graph of the database schema.
  * Tables are nodes; foreign-key relationships are edges.
  */
-export function SchemaGraph({ connectionId, isCrawled, onCrawl, isCrawling }: SchemaGraphProps) {
+export function SchemaGraph({
+  connectionId,
+  isCrawled,
+  onCrawl,
+  isCrawling,
+  ollamaAvailable,
+  ollamaModel,
+  ollamaModelPulled,
+  onCheckOllama,
+}: SchemaGraphProps) {
   if (!connectionId) {
     return (
       <div className="flex items-center justify-center h-full opacity-40 text-sm">
@@ -24,7 +37,14 @@ export function SchemaGraph({ connectionId, isCrawled, onCrawl, isCrawling }: Sc
   if (!isCrawled) {
     return (
       <div className="flex flex-col h-full">
-        <IndexFirstCard onCrawl={onCrawl} isCrawling={isCrawling} />
+        <IndexFirstCard
+          onCrawl={onCrawl}
+          isCrawling={isCrawling}
+          ollamaAvailable={ollamaAvailable}
+          ollamaModel={ollamaModel}
+          ollamaModelPulled={ollamaModelPulled}
+          onCheckOllama={onCheckOllama}
+        />
       </div>
     );
   }
