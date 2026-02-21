@@ -2,6 +2,16 @@
 
 export type DbDriver = "mssql" | "postgres" | "mysql";
 
+/** Implemented by each DB driver; used by ConnectionManager and SchemaService. */
+export interface IDbDriver {
+  testConnection(config: DbConnectionConfig, password: string): Promise<boolean>;
+  crawlSchema(
+    config: DbConnectionConfig,
+    password: string,
+    onProgress?: CrawlProgressCallback
+  ): Promise<DatabaseSchema>;
+}
+
 export interface DbConnectionConfig {
   id: string;
   label: string;
@@ -89,6 +99,7 @@ export type ExtensionToWebviewMessage =
   | { type: "CRAWL_PROGRESS"; payload: CrawlProgress }
   | { type: "CRAWL_COMPLETE"; payload: { connectionId: string } }
   | { type: "CRAWL_ERROR"; payload: { connectionId: string; error: string } }
+  | { type: "CRAWLED_CONNECTION_IDS"; payload: string[] }
   | { type: "CHAT_CHUNK"; payload: { token: string } }
   | { type: "CHAT_DONE" }
   | { type: "CHAT_ERROR"; payload: { error: string } }
@@ -112,3 +123,5 @@ export interface CrawlProgress {
   total: number;
   currentObject?: string;
 }
+
+export type CrawlProgressCallback = (progress: CrawlProgress) => void;

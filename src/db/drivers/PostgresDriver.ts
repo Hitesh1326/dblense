@@ -1,22 +1,19 @@
 import { Client } from "pg";
-import { DbConnectionConfig, DatabaseSchema } from "../../shared/types";
+import { DbConnectionConfig, DatabaseSchema, CrawlProgressCallback } from "../../shared/types";
 
 /**
  * Driver for PostgreSQL via the `pg` package.
+ * Each operation creates its own connection and closes it when done.
  */
 export class PostgresDriver {
-  async connect(config: DbConnectionConfig, password: string): Promise<void> {
-    // TODO: create pg Pool
-  }
-
-  async disconnect(): Promise<void> {
-    // TODO: end pool
-  }
-
-  async crawlSchema(connectionId: string): Promise<DatabaseSchema> {
+  async crawlSchema(
+    _config: DbConnectionConfig,
+    _password: string,
+    _onProgress?: CrawlProgressCallback
+  ): Promise<DatabaseSchema> {
     // TODO: query information_schema.tables, information_schema.columns,
     //       pg_proc for stored procedures/functions
-    throw new Error("Not implemented");
+    throw new Error("Postgres schema crawl not implemented yet");
   }
 
   async testConnection(config: DbConnectionConfig, password: string): Promise<boolean> {
