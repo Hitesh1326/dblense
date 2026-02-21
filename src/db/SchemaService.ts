@@ -1,9 +1,5 @@
-import { DbConnectionConfig, DatabaseSchema, CrawlProgress } from "../shared/types";
-import { MssqlDriver } from "./drivers/MssqlDriver";
-import { PostgresDriver } from "./drivers/PostgresDriver";
-import { MysqlDriver } from "./drivers/MysqlDriver";
-
-type ProgressCallback = (progress: CrawlProgress) => void;
+import { DbConnectionConfig, DatabaseSchema, CrawlProgressCallback } from "../shared/types";
+import { getDriver } from "./drivers";
 
 /**
  * Orchestrates schema crawling across all supported drivers.
@@ -12,9 +8,9 @@ export class SchemaService {
   async crawl(
     config: DbConnectionConfig,
     password: string,
-    onProgress: ProgressCallback
+    onProgress: CrawlProgressCallback
   ): Promise<DatabaseSchema> {
-    // TODO: select driver based on config.driver, run crawl with progress events
-    throw new Error("Not implemented");
+    const driver = getDriver(config.driver);
+    return driver.crawlSchema(config, password, onProgress);
   }
 }

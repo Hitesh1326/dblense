@@ -1,22 +1,19 @@
 import * as mysql from "mysql2/promise";
-import { DbConnectionConfig, DatabaseSchema } from "../../shared/types";
+import { DbConnectionConfig, DatabaseSchema, CrawlProgressCallback } from "../../shared/types";
 
 /**
  * Driver for MySQL via the `mysql2` package.
+ * Each operation creates its own connection and closes it when done.
  */
 export class MysqlDriver {
-  async connect(config: DbConnectionConfig, password: string): Promise<void> {
-    // TODO: create mysql2 connection pool
-  }
-
-  async disconnect(): Promise<void> {
-    // TODO: end pool
-  }
-
-  async crawlSchema(connectionId: string): Promise<DatabaseSchema> {
+  async crawlSchema(
+    _config: DbConnectionConfig,
+    _password: string,
+    _onProgress?: CrawlProgressCallback
+  ): Promise<DatabaseSchema> {
     // TODO: query information_schema.TABLES, information_schema.COLUMNS,
     //       information_schema.ROUTINES for stored procedures
-    throw new Error("Not implemented");
+    throw new Error("MySQL schema crawl not implemented yet");
   }
 
   async testConnection(config: DbConnectionConfig, password: string): Promise<boolean> {

@@ -1,11 +1,10 @@
 import * as vscode from "vscode";
-import { DbConnectionConfig, DbDriver } from "../shared/types";
-import { PostgresDriver } from "./drivers/PostgresDriver";
-import { MssqlDriver } from "./drivers/MssqlDriver";
-import { MysqlDriver } from "./drivers/MysqlDriver";
+import { DbConnectionConfig } from "../shared/types";
+import { getDriver } from "./drivers";
 import { logger } from "../utils/logger";
 
 const CONNECTIONS_KEY = "dblense.connections";
+const CRAWLED_IDS_KEY = "dblense.crawledConnectionIds";
 const PASSWORD_KEY_PREFIX = "dblense.password.";
 
 /**
@@ -37,6 +36,23 @@ export class ConnectionManager {
     const list = (await this.getAll()).filter((c) => c.id !== id);
     await this.globalState.update(CONNECTIONS_KEY, list);
     await this.secrets.delete(`${PASSWORD_KEY_PREFIX}${id}`);
+    await this.removeCrawledConnectionId(id);
+  }
+
+  async getCrawledConnectionIds(): Promise<string[]> {
+    const raw = this.globalState.get<string[]>(CRAWLED_IDS_KEY);
+    return Array.isArray(raw) ? raw : [];
+  }
+
+  async addCrawledConnectionId(id: string): Promise<void> {
+    const ids = await this.getCrawledConnectionIds();
+    if (ids.includes(id)) return;
+    await this.globalState.update(CRAWLED_IDS_KEY, [...ids, id]);
+  }
+
+  async removeCrawledConnectionId(id: string): Promise<void> {
+    const ids = (await this.getCrawledConnectionIds()).filter((x) => x !== id);
+    await this.globalState.update(CRAWLED_IDS_KEY, ids);
   }
 
   async getPassword(id: string): Promise<string | undefined> {
@@ -61,7 +77,7 @@ export class ConnectionManager {
     }
 
     logger.info(`Testing connection: ${config.label} (${config.driver} @ ${config.host}:${config.port}/${config.database}).`);
-    const driver = this.getDriver(config.driver);
+    const driver = getDriver(config.driver);
     try {
       const ok = await driver.testConnection(config, password);
       if (ok) {
@@ -74,17 +90,6 @@ export class ConnectionManager {
       const message = err instanceof Error ? err.message : String(err);
       logger.error(`Connection test failed: ${config.label}`, err);
       return { success: false, error: message };
-    }
-  }
-
-  private getDriver(driver: DbDriver): PostgresDriver | MssqlDriver | MysqlDriver {
-    switch (driver) {
-      case "postgres":
-        return new PostgresDriver();
-      case "mssql":
-        return new MssqlDriver();
-      case "mysql":
-        return new MysqlDriver();
     }
   }
 }
