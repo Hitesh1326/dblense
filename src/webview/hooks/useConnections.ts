@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { DbConnectionConfig, CrawlProgress } from "../../shared/types";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { DbConnectionConfig, CrawlProgress, IndexStats } from "../../shared/types";
 import { postMessage, onMessage } from "../vscodeApi";
 
 interface UseConnectionsReturn {
@@ -10,12 +10,20 @@ interface UseConnectionsReturn {
   removeConnection: (id: string) => void;
   testConnection: (id: string) => void;
   crawlSchema: (id: string) => void;
+  cancelCrawl: (connectionId: string) => void;
+  requestIndexStats: (connectionId: string) => void;
+  indexStats: IndexStats | null;
+  indexStatsLoading: boolean;
+  clearIndexInfo: () => void;
 }
 
 export function useConnections(): UseConnectionsReturn {
   const [connections, setConnections] = useState<DbConnectionConfig[]>([]);
   const [crawledConnectionIds, setCrawledConnectionIds] = useState<string[]>([]);
   const [crawlProgress, setCrawlProgress] = useState<CrawlProgress | null>(null);
+  const [indexStats, setIndexStats] = useState<IndexStats | null>(null);
+  const [indexStatsRequestedId, setIndexStatsRequestedId] = useState<string | null>(null);
+  const indexStatsRequestedIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     postMessage({ type: "GET_CONNECTIONS" });
@@ -39,8 +47,16 @@ export function useConnections(): UseConnectionsReturn {
           setCrawlProgress(message.payload);
           break;
         case "CRAWL_COMPLETE":
+        case "CRAWL_CANCELLED":
         case "CRAWL_ERROR":
           setCrawlProgress(null);
+          break;
+        case "INDEX_STATS":
+          if (message.payload.connectionId === indexStatsRequestedIdRef.current) {
+            setIndexStats(message.payload.stats);
+            indexStatsRequestedIdRef.current = null;
+            setIndexStatsRequestedId(null);
+          }
           break;
       }
     });
@@ -64,5 +80,37 @@ export function useConnections(): UseConnectionsReturn {
     postMessage({ type: "CRAWL_SCHEMA", payload: { id } });
   }, []);
 
-  return { connections, crawledConnectionIds, crawlProgress, addConnection, removeConnection, testConnection, crawlSchema };
+  const cancelCrawl = useCallback((connectionId: string) => {
+    postMessage({ type: "CRAWL_CANCEL", payload: { connectionId } });
+  }, []);
+
+  const requestIndexStats = useCallback((connectionId: string) => {
+    indexStatsRequestedIdRef.current = connectionId;
+    setIndexStatsRequestedId(connectionId);
+    setIndexStats(null);
+    postMessage({ type: "GET_INDEX_STATS", payload: { connectionId } });
+  }, []);
+
+  const clearIndexInfo = useCallback(() => {
+    indexStatsRequestedIdRef.current = null;
+    setIndexStatsRequestedId(null);
+    setIndexStats(null);
+  }, []);
+
+  const indexStatsLoading = indexStatsRequestedId !== null;
+
+  return {
+    connections,
+    crawledConnectionIds,
+    crawlProgress,
+    addConnection,
+    removeConnection,
+    testConnection,
+    crawlSchema,
+    cancelCrawl,
+    requestIndexStats,
+    indexStats,
+    indexStatsLoading,
+    clearIndexInfo,
+  };
 }

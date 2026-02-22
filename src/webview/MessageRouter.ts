@@ -38,6 +38,9 @@ interface Services {
  * Routes messages from the webview to the appropriate service handler.
  */
 export class MessageRouter {
+  /** Holds the active crawl abort controller; null when no crawl is running. */
+  private activeCrawl: { connectionId: string; controller: AbortController } | null = null;
+
   constructor(private readonly services: Services) {}
 
   async handle(message: WebviewToExtensionMessage, post: PostMessage): Promise<void> {
@@ -101,29 +104,50 @@ export class MessageRouter {
             post({ type: "ERROR", payload: { message: "Password not found for this connection" } });
             break;
           }
+          const controller = new AbortController();
+          this.activeCrawl = { connectionId, controller };
           try {
-            const schema = await this.services.schemaService.crawl(config, password, (progress) => {
-              post({ type: "CRAWL_PROGRESS", payload: progress });
-            });
-            await this.services.indexer.index(schema, (progress) => {
-              post({ type: "CRAWL_PROGRESS", payload: progress });
-            });
+            const schema = await this.services.schemaService.crawl(
+              config,
+              password,
+              (progress) => post({ type: "CRAWL_PROGRESS", payload: progress }),
+              controller.signal
+            );
+            await this.services.indexer.index(
+              schema,
+              (progress) => post({ type: "CRAWL_PROGRESS", payload: progress }),
+              controller.signal
+            );
             await this.services.connectionManager.addCrawledConnectionId(connectionId);
             const crawledIds = await this.services.connectionManager.getCrawledConnectionIds();
             post({ type: "CRAWL_COMPLETE", payload: { connectionId } });
             post({ type: "CRAWLED_CONNECTION_IDS", payload: crawledIds });
             vscode.window.showInformationMessage("SchemaSight: Schema crawl and index complete.");
           } catch (err) {
-            const error = err instanceof Error ? err.message : String(err);
-            logger.error("Crawl failed", err);
-            post({ type: "CRAWL_ERROR", payload: { connectionId, error } });
-            if (isOllamaUnreachableError(error)) {
-              vscode.window.showErrorMessage(
-                "SchemaSight: Couldn't reach Ollama. Is it running? Start it (e.g. ollama serve) and try again. See Output → SchemaSight for details."
-              );
+            if (err instanceof DOMException && err.name === "AbortError") {
+              post({ type: "CRAWL_CANCELLED", payload: { connectionId } });
+              vscode.window.showInformationMessage("SchemaSight: Re-index cancelled.");
             } else {
-              vscode.window.showErrorMessage(`SchemaSight: Crawl failed. See Output → SchemaSight for details.`);
+              const error = err instanceof Error ? err.message : String(err);
+              logger.error("Crawl failed", err);
+              post({ type: "CRAWL_ERROR", payload: { connectionId, error } });
+              if (isOllamaUnreachableError(error)) {
+                vscode.window.showErrorMessage(
+                  "SchemaSight: Couldn't reach Ollama. Is it running? Start it (e.g. ollama serve) and try again. See Output → SchemaSight for details."
+                );
+              } else {
+                vscode.window.showErrorMessage(`SchemaSight: Crawl failed. See Output → SchemaSight for details.`);
+              }
             }
+          } finally {
+            this.activeCrawl = null;
+          }
+          break;
+        }
+        case "CRAWL_CANCEL": {
+          const { connectionId } = message.payload;
+          if (this.activeCrawl?.connectionId === connectionId) {
+            this.activeCrawl.controller.abort();
           }
           break;
         }
@@ -133,6 +157,12 @@ export class MessageRouter {
         case "CLEAR_INDEX":
           // TODO: clear index for connection, post INDEX_CLEARED
           break;
+        case "GET_INDEX_STATS": {
+          const { connectionId } = message.payload;
+          const stats = await this.services.vectorStoreManager.getIndexStats(connectionId);
+          post({ type: "INDEX_STATS", payload: { connectionId, stats } });
+          break;
+        }
         default:
           post({ type: "ERROR", payload: { message: "Unknown message type" } });
       }

@@ -9,14 +9,14 @@ interface TabBarProps {
 
 export function TabBar({ activeView, onChangeView }: TabBarProps) {
   return (
-    <div className="flex border-b border-vscode-panel-border bg-vscode-editorGroupHeader-tabsBackground shrink-0">
+    <div className="flex w-full border-b border-vscode-panel-border bg-vscode-editorGroupHeader-tabsBackground shrink-0">
       <button
         type="button"
         onClick={() => onChangeView("chat")}
-        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+        className={`px-4 py-2.5 text-sm border-b-2 border-transparent transition-colors ${
           activeView === "chat"
-            ? "border-vscode-tab-activeBorder text-vscode-foreground"
-            : "border-transparent text-vscode-descriptionForeground hover:text-vscode-foreground"
+            ? "border-vscode-tab-activeBorder text-vscode-foreground font-semibold opacity-100 mb-[-2px]"
+            : "text-vscode-foreground opacity-[0.4] font-normal hover:opacity-60"
         }`}
       >
         Chat
@@ -24,10 +24,10 @@ export function TabBar({ activeView, onChangeView }: TabBarProps) {
       <button
         type="button"
         onClick={() => onChangeView("schema")}
-        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+        className={`px-4 py-2.5 text-sm border-b-2 border-transparent transition-colors ${
           activeView === "schema"
-            ? "border-vscode-tab-activeBorder text-vscode-foreground"
-            : "border-transparent text-vscode-descriptionForeground hover:text-vscode-foreground"
+            ? "border-vscode-tab-activeBorder text-vscode-foreground font-semibold opacity-100 mb-[-2px]"
+            : "text-vscode-foreground opacity-[0.4] font-normal hover:opacity-60"
         }`}
       >
         Schema Graph

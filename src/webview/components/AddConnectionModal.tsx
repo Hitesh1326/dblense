@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { X } from "lucide-react";
 import { ConnectionForm } from "./ConnectionForm";
 import { DbConnectionConfig } from "../../shared/types";
 
@@ -47,9 +48,7 @@ export function AddConnectionModal({ isOpen, onClose, onAdd }: AddConnectionModa
             className="p-1 rounded hover:bg-vscode-toolbar-hoverBackground text-vscode-foreground"
             aria-label="Close"
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-              <path d="M12 4L4 12M4 4l8 8" />
-            </svg>
+            <X size={16} aria-hidden />
           </button>
         </div>
         <div className="p-4">

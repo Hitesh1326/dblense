@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { Plus, MoreVertical } from "lucide-react";
 import { DbConnectionConfig, CrawlProgress } from "../../shared/types";
 
 interface SidebarProps {
@@ -11,32 +12,7 @@ interface SidebarProps {
   onTest: (id: string) => void;
   onCrawl: (id: string) => void;
   onRemove: (id: string) => void;
-}
-
-function formatCrawlPhase(progress: CrawlProgress): string {
-  if (progress.phase === "connecting") return "Connecting…";
-  if (progress.phase === "crawling_tables") {
-    return progress.total > 0
-      ? `Tables ${progress.current}/${progress.total}${progress.currentObject ? ` — ${progress.currentObject}` : ""}`
-      : "Crawling tables…";
-  }
-  if (progress.phase === "crawling_sps") {
-    return progress.total > 0
-      ? `Stored procedures ${progress.current}/${progress.total}${progress.currentObject ? ` — ${progress.currentObject}` : ""}`
-      : "Crawling stored procedures…";
-  }
-  if (progress.phase === "summarizing") {
-    return progress.total > 0
-      ? `Summarizing ${progress.current}/${progress.total}${progress.currentObject ? ` — ${progress.currentObject}` : ""}`
-      : "Summarizing…";
-  }
-  if (progress.phase === "embedding") {
-    return progress.total > 0
-      ? `Embedding ${progress.current}/${progress.total}`
-      : "Embedding…";
-  }
-  if (progress.phase === "storing") return "Storing…";
-  return `${progress.phase}…`;
+  onIndexInfo?: (connectionId: string) => void;
 }
 
 export function Sidebar({
@@ -49,6 +25,7 @@ export function Sidebar({
   onTest,
   onCrawl,
   onRemove,
+  onIndexInfo,
 }: SidebarProps) {
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -65,52 +42,45 @@ export function Sidebar({
   }, [menuOpenId]);
 
   return (
-    <aside className="w-56 flex flex-col border-r border-vscode-panel-border bg-vscode-sideBar-background overflow-y-auto shrink-0">
-      <div className="p-2">
-        <button
-          type="button"
-          onClick={onAddConnection}
-          className="w-full px-2 py-1.5 rounded text-xs font-medium border border-vscode-button-border bg-vscode-button-secondaryBackground text-vscode-button-secondaryForeground hover:bg-vscode-button-secondaryHoverBackground transition-colors"
-        >
-          + New Connection
-        </button>
+    <aside className="w-[220px] flex flex-col border-r border-vscode-panel-border bg-vscode-sideBar-background overflow-hidden shrink-0">
+      <div className="flex items-center px-3 pt-3 pb-2 shrink-0">
+        <span className="text-[10px] font-normal uppercase tracking-widest text-vscode-descriptionForeground opacity-90">
+          Connections
+        </span>
       </div>
 
-      <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider opacity-50">
-        Connections
-      </div>
-
-      <ul className="flex-1 space-y-0.5 px-2 pb-2">
+      <ul className="flex-1 py-1.5 px-1.5 space-y-0.5 min-h-0 overflow-y-auto">
         {connections.map((conn) => {
           const isActive = activeConnectionId === conn.id;
           const isCrawling = crawlProgress?.connectionId === conn.id;
           const menuOpen = menuOpenId === conn.id;
           const isIndexed = crawledConnectionIds.includes(conn.id);
+          const primaryLabel = conn.database;
 
           return (
             <li key={conn.id} className="relative">
               <div
-                className={`group flex items-center gap-1 w-full text-left px-2 py-1.5 rounded text-sm min-w-0 ${
+                className={`group flex items-center gap-2 w-full text-left px-2 py-1.5 rounded-md text-sm min-w-0 transition-colors ${
                   isActive
                     ? "bg-vscode-list-activeSelectionBackground text-vscode-list-activeSelectionForeground"
-                    : "hover:bg-vscode-list-hoverBackground"
+                    : "hover:bg-vscode-list-hoverBackground text-vscode-foreground"
                 }`}
               >
                 <button
                   type="button"
-                  className="flex-1 min-w-0 flex items-center gap-2 truncate"
+                  className="flex-1 min-w-0 flex items-center gap-2.5"
                   onClick={() => onSelectConnection(conn.id)}
-                  title={conn.label}
+                  title={primaryLabel}
                 >
-                  <DbIcon driver={conn.driver} />
-                  <span className="truncate" title={conn.label}>{conn.database}</span>
-                  {isIndexed && (
-                    <span className="shrink-0 text-[10px] opacity-60" title="Indexed">
-                      ✓
-                    </span>
-                  )}
+                  <DbAvatarWithStatus driver={conn.driver} isIndexed={isIndexed} isCrawling={isCrawling} />
+                  <span className="truncate font-normal text-sm" title={primaryLabel}>
+                    {primaryLabel}
+                  </span>
                 </button>
-                <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" ref={menuOpen ? menuRef : undefined}>
+                <div
+                  className="shrink-0"
+                  ref={menuOpen ? menuRef : undefined}
+                >
                   <button
                     type="button"
                     aria-label="Actions"
@@ -119,12 +89,12 @@ export function Sidebar({
                       e.stopPropagation();
                       setMenuOpenId(menuOpen ? null : conn.id);
                     }}
-                    className="p-0.5 rounded hover:bg-vscode-toolbar-hoverBackground text-vscode-foreground"
+                    className="p-1 rounded hover:bg-vscode-toolbar-hoverBackground text-vscode-descriptionForeground hover:text-vscode-foreground"
                   >
-                    <KebabIcon />
+                    <MoreVertical size={14} aria-hidden />
                   </button>
                   {menuOpen && (
-                    <div className="absolute right-0 top-full mt-0.5 z-10 py-0.5 min-w-[140px] rounded shadow-lg border border-vscode-dropdown-border bg-vscode-dropdown-background">
+                    <div className="absolute right-0 top-full mt-0.5 z-10 py-0.5 min-w-[160px] rounded-md shadow-lg border border-vscode-dropdown-border bg-vscode-dropdown-background">
                       <button
                         type="button"
                         className="w-full text-left px-3 py-1.5 text-xs hover:bg-vscode-list-hoverBackground"
@@ -141,13 +111,26 @@ export function Sidebar({
                         disabled={!!crawlProgress}
                         onClick={() => {
                           if (!crawlProgress) {
+                            onSelectConnection(conn.id);
                             onCrawl(conn.id);
                             setMenuOpenId(null);
                           }
                         }}
                       >
-                        Crawl schema
+                        {isIndexed ? "Re-index" : "Crawl schema"}
                       </button>
+                      {isIndexed && onIndexInfo && (
+                        <button
+                          type="button"
+                          className="w-full text-left px-3 py-1.5 text-xs hover:bg-vscode-list-hoverBackground"
+                          onClick={() => {
+                            onIndexInfo(conn.id);
+                            setMenuOpenId(null);
+                          }}
+                        >
+                          Index info
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="w-full text-left px-3 py-1.5 text-xs hover:bg-vscode-list-hoverBackground text-vscode-errorForeground"
@@ -162,42 +145,84 @@ export function Sidebar({
                   )}
                 </div>
               </div>
-              {isCrawling && crawlProgress && (
-                <p className="px-2 py-0.5 pl-7 text-[10px] opacity-70 truncate" title={crawlProgress.currentObject}>
-                  {formatCrawlPhase(crawlProgress)}
-                </p>
-              )}
             </li>
           );
         })}
 
         {connections.length === 0 && (
-          <li className="px-2 py-1.5 text-xs opacity-50 italic">No connections yet</li>
+          <li className="px-3 py-4 text-xs text-vscode-descriptionForeground italic">
+            No connections yet
+          </li>
         )}
       </ul>
+
+      <div className="shrink-0 border-t border-vscode-panel-border/50 p-2 pt-2">
+        <button
+          type="button"
+          onClick={onAddConnection}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium hover:opacity-90 transition-opacity"
+          style={{
+            backgroundColor: "var(--vscode-button-background)",
+            color: "var(--vscode-button-foreground)",
+          }}
+        >
+          <Plus size={18} aria-hidden />
+          Add Connection
+        </button>
+      </div>
     </aside>
   );
 }
 
-function KebabIcon() {
+/**
+ * Driver avatar with an overlaid status badge on the bottom-right corner:
+ * - Green dot  = indexed (ready for chat)
+ * - Pulsing amber dot = crawling / indexing in progress
+ * - No badge = not yet indexed
+ */
+function DbAvatarWithStatus({
+  driver,
+  isIndexed,
+  isCrawling,
+}: {
+  driver: DbConnectionConfig["driver"];
+  isIndexed: boolean;
+  isCrawling: boolean;
+}) {
+  const { label, bg, fg } = driverStyle(driver);
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-      <circle cx="8" cy="3" r="1.5" />
-      <circle cx="8" cy="8" r="1.5" />
-      <circle cx="8" cy="13" r="1.5" />
-    </svg>
+    <span className="relative shrink-0 inline-flex" aria-hidden>
+      <span
+        className={`inline-flex items-center justify-center w-7 h-7 rounded-md text-[10px] font-semibold ${bg} ${fg}`}
+        title={driver}
+      >
+        {label}
+      </span>
+      {isCrawling && (
+        <span
+          className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-vscode-sideBar-background bg-amber-400 animate-pulse"
+          title="Indexing…"
+        />
+      )}
+      {!isCrawling && isIndexed && (
+        <span
+          className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-vscode-sideBar-background bg-emerald-500"
+          title="Indexed"
+        />
+      )}
+    </span>
   );
 }
 
-function DbIcon({ driver }: { driver: DbConnectionConfig["driver"] }) {
-  const labels: Record<DbConnectionConfig["driver"], string> = {
-    mssql: "MS",
-    postgres: "PG",
-    mysql: "MY",
-  };
-  return (
-    <span className="inline-flex items-center justify-center w-5 h-5 rounded text-[9px] font-bold bg-vscode-badge-background text-vscode-badge-foreground shrink-0">
-      {labels[driver]}
-    </span>
-  );
+function driverStyle(driver: DbConnectionConfig["driver"]): { label: string; bg: string; fg: string } {
+  switch (driver) {
+    case "mssql":
+      return { label: "MS", bg: "bg-[#0078d4]/15", fg: "text-[#0078d4]" };
+    case "postgres":
+      return { label: "PG", bg: "bg-[#336791]/15", fg: "text-[#336791]" };
+    case "mysql":
+      return { label: "MY", bg: "bg-[#00758f]/15", fg: "text-[#00758f]" };
+    default:
+      return { label: "DB", bg: "bg-vscode-badge-background", fg: "text-vscode-badge-foreground" };
+  }
 }
