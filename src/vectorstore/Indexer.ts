@@ -21,9 +21,12 @@ export class Indexer {
     private readonly spParser: SpParser
   ) {}
 
-  async index(schema: DatabaseSchema, onProgress: ProgressCallback): Promise<void> {
+  async index(schema: DatabaseSchema, onProgress: ProgressCallback, signal?: AbortSignal): Promise<void> {
     const connectionId = schema.connectionId;
     const crawledAt = schema.crawledAt;
+    const throwIfAborted = () => {
+      if (signal?.aborted) throw new DOMException("Crawl cancelled", "AbortError");
+    };
 
     // 1. Build raw chunks (no summary/embedding yet)
     const chunks: SchemaChunk[] = [];
@@ -42,6 +45,7 @@ export class Indexer {
 
     // 2. Summarize each chunk via Ollama
     for (let i = 0; i < chunks.length; i++) {
+      throwIfAborted();
       const chunk = chunks[i];
       onProgress({
         connectionId,
@@ -61,6 +65,7 @@ export class Indexer {
     // 3. Embed all summaries in batches (e.g. 32 at a time to avoid overload)
     const batchSize = 32;
     for (let offset = 0; offset < chunks.length; offset += batchSize) {
+      throwIfAborted();
       onProgress({
         connectionId,
         phase: "embedding",
@@ -76,7 +81,8 @@ export class Indexer {
       });
     }
 
-    // 4. Upsert into vector store
+    // 4. Upsert into vector store (only reached if not aborted)
+    throwIfAborted();
     onProgress({ connectionId, phase: "storing", current: 1, total: 1 });
     await this.vectorStore.upsertChunks(connectionId, chunks);
   }

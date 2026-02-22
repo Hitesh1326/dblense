@@ -8,7 +8,8 @@ export interface IDbDriver {
   crawlSchema(
     config: DbConnectionConfig,
     password: string,
-    onProgress?: CrawlProgressCallback
+    onProgress?: CrawlProgressCallback,
+    signal?: AbortSignal
   ): Promise<DatabaseSchema>;
 }
 
@@ -87,10 +88,12 @@ export type WebviewToExtensionMessage =
   | { type: "REMOVE_CONNECTION"; payload: { id: string } }
   | { type: "TEST_CONNECTION"; payload: { id: string } }
   | { type: "CRAWL_SCHEMA"; payload: { id: string } }
+  | { type: "CRAWL_CANCEL"; payload: { connectionId: string } }
   | { type: "GET_OLLAMA_STATUS" }
   | { type: "CHAT"; payload: { connectionId: string; message: string; history: ChatMessage[] } }
   | { type: "GET_CRAWL_STATUS"; payload: { connectionId: string } }
-  | { type: "CLEAR_INDEX"; payload: { connectionId: string } };
+  | { type: "CLEAR_INDEX"; payload: { connectionId: string } }
+  | { type: "GET_INDEX_STATS"; payload: { connectionId: string } };
 
 export type ExtensionToWebviewMessage =
   | { type: "CONNECTIONS_LIST"; payload: DbConnectionConfig[] }
@@ -100,13 +103,24 @@ export type ExtensionToWebviewMessage =
   | { type: "CONNECTION_TEST_RESULT"; payload: { id: string; success: boolean; error?: string } }
   | { type: "CRAWL_PROGRESS"; payload: CrawlProgress }
   | { type: "CRAWL_COMPLETE"; payload: { connectionId: string } }
+  | { type: "CRAWL_CANCELLED"; payload: { connectionId: string } }
   | { type: "CRAWL_ERROR"; payload: { connectionId: string; error: string } }
   | { type: "CRAWLED_CONNECTION_IDS"; payload: string[] }
   | { type: "CHAT_CHUNK"; payload: { token: string } }
   | { type: "CHAT_DONE" }
   | { type: "CHAT_ERROR"; payload: { error: string } }
   | { type: "INDEX_CLEARED"; payload: { connectionId: string } }
+  | { type: "INDEX_STATS"; payload: { connectionId: string; stats: IndexStats | null } }
   | { type: "ERROR"; payload: { message: string } };
+
+export interface IndexStats {
+  totalChunks: number;
+  tableChunks: number;
+  spChunks: number;
+  chunksWithSummary: number;
+  chunksWithEmbedding: number;
+  lastCrawledAt: string | null;
+}
 
 // ─── Chat ─────────────────────────────────────────────────────────────────────
 

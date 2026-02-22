@@ -29,9 +29,13 @@ export class MssqlDriver {
   async crawlSchema(
     config: DbConnectionConfig,
     password: string,
-    onProgress?: CrawlProgressCallback
+    onProgress?: CrawlProgressCallback,
+    signal?: AbortSignal
   ): Promise<DatabaseSchema> {
     const connectionId = config.id;
+    const throwIfAborted = () => {
+      if (signal?.aborted) throw new DOMException("Crawl cancelled", "AbortError");
+    };
     const report = (phase: CrawlProgress["phase"], current: number, total: number, currentObject?: string) => {
       onProgress?.({
         connectionId,
@@ -138,6 +142,7 @@ export class MssqlDriver {
 
       const totalTables = tableList.length;
       for (let i = 0; i < totalTables; i++) {
+        throwIfAborted();
         const t = tableList[i];
         report("crawling_tables", i + 1, totalTables, `${t.schema_name}.${t.table_name}`);
 
@@ -176,6 +181,7 @@ export class MssqlDriver {
       const totalProcs = procList.length;
 
       for (let i = 0; i < totalProcs; i++) {
+        throwIfAborted();
         const p = procList[i];
         report("crawling_sps", i + 1, totalProcs, `${p.schema_name}.${p.procedure_name}`);
 

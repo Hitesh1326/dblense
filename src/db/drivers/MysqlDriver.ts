@@ -9,7 +9,8 @@ export class MysqlDriver {
   async crawlSchema(
     _config: DbConnectionConfig,
     _password: string,
-    _onProgress?: CrawlProgressCallback
+    _onProgress?: CrawlProgressCallback,
+    _signal?: AbortSignal
   ): Promise<DatabaseSchema> {
     // TODO: query information_schema.TABLES, information_schema.COLUMNS,
     //       information_schema.ROUTINES for stored procedures

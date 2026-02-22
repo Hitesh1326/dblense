@@ -9,7 +9,8 @@ export class PostgresDriver {
   async crawlSchema(
     _config: DbConnectionConfig,
     _password: string,
-    _onProgress?: CrawlProgressCallback
+    _onProgress?: CrawlProgressCallback,
+    _signal?: AbortSignal
   ): Promise<DatabaseSchema> {
     // TODO: query information_schema.tables, information_schema.columns,
     //       pg_proc for stored procedures/functions

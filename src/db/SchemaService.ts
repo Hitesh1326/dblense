@@ -8,9 +8,10 @@ export class SchemaService {
   async crawl(
     config: DbConnectionConfig,
     password: string,
-    onProgress: CrawlProgressCallback
+    onProgress: CrawlProgressCallback,
+    signal?: AbortSignal
   ): Promise<DatabaseSchema> {
     const driver = getDriver(config.driver);
-    return driver.crawlSchema(config, password, onProgress);
+    return driver.crawlSchema(config, password, onProgress, signal);
   }
 }
