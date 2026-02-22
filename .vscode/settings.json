@@ -1,8 +1,9 @@
 {
     "cSpell.words": [
-        "schemasight",
         "lancedb",
         "ollama",
+        "Reindexing",
+        "schemasight",
         "vectorstore"
     ]
 }

@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import * as lancedb from "@lancedb/lancedb";
 import type { Connection } from "@lancedb/lancedb";
-import type { SchemaChunk } from "../shared/types";
+import type { SchemaChunk, IndexStats } from "../shared/types";
 
 const CHUNKS_TABLE_PREFIX = "chunks_";
 const EMBEDDING_COLUMN = "embedding";
@@ -124,5 +124,56 @@ export class VectorStoreManager {
     return names
       .filter((n) => n.startsWith(prefix))
       .map((n) => n.slice(prefix.length));
+  }
+
+  /**
+   * Return aggregate stats for a connection's index (counts, last crawled, pipeline health).
+   */
+  async getIndexStats(connectionId: string): Promise<IndexStats | null> {
+    const db = await this.getConnection();
+    const tableName = tableNameFor(connectionId);
+    const names = await db.tableNames();
+    if (!names.includes(tableName)) return null;
+
+    const table = await db.openTable(tableName);
+    const totalChunks = await table.countRows();
+
+    const rows = await table
+      .query()
+      .select(["objectType", "summary", "embedding", "crawledAt"])
+      .limit(50_000)
+      .toArray();
+
+    let tableChunks = 0;
+    let spChunks = 0;
+    let chunksWithSummary = 0;
+    let chunksWithEmbedding = 0;
+    let lastCrawledAt: string | null = null;
+
+    for (const row of rows) {
+      const r = row as Record<string, unknown>;
+      if (r.objectType === "table") tableChunks++;
+      if (r.objectType === "stored_procedure") spChunks++;
+      if (typeof r.summary === "string" && r.summary.length > 0) chunksWithSummary++;
+      const emb = r.embedding;
+      // LanceDB returns vector columns as Float32Array, not plain Array
+      const hasEmbedding =
+        (Array.isArray(emb) && emb.length > 0) ||
+        (typeof emb === "object" && emb !== null && "length" in emb && (emb as { length: number }).length > 0);
+      if (hasEmbedding) chunksWithEmbedding++;
+      const at = r.crawledAt;
+      if (typeof at === "string" && at) {
+        if (!lastCrawledAt || at > lastCrawledAt) lastCrawledAt = at;
+      }
+    }
+
+    return {
+      totalChunks,
+      tableChunks,
+      spChunks,
+      chunksWithSummary,
+      chunksWithEmbedding,
+      lastCrawledAt,
+    };
   }
 }
