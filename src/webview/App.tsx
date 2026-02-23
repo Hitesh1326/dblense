@@ -29,7 +29,7 @@ export function App() {
     indexStatsLoading,
     clearIndexInfo,
   } = useConnections();
-  const { messages, sendMessage, isStreaming, clearHistory } = useChat(activeConnectionId);
+  const { messages, sendMessage, isStreaming, thinking, showThinkingBlock, clearHistory } = useChat(activeConnectionId);
   const { available: ollamaAvailable, model: ollamaModel, modelPulled: ollamaModelPulled, check: checkOllama } =
     useOllamaStatus();
 
@@ -79,6 +79,8 @@ export function App() {
               <ChatPanel
                 messages={messages}
                 isStreaming={isStreaming}
+                thinking={thinking}
+                showThinkingBlock={showThinkingBlock}
                 onSend={sendMessage}
                 onClear={clearHistory}
                 connectionId={activeConnectionId}

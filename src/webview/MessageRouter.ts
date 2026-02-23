@@ -2,10 +2,12 @@ import * as vscode from "vscode";
 import { ConnectionManager } from "../db/ConnectionManager";
 import { SchemaService } from "../db/SchemaService";
 import { OllamaService } from "../llm/OllamaService";
+import { PromptBuilder } from "../llm/PromptBuilder";
 import { EmbeddingService } from "../embeddings/EmbeddingService";
 import { VectorStoreManager } from "../vectorstore/VectorStoreManager";
 import { Indexer } from "../vectorstore/Indexer";
 import { logger } from "../utils/logger";
+import type { SchemaChunk, ChatThinking } from "../shared/types";
 import {
   WebviewToExtensionMessage,
   ExtensionToWebviewMessage,
@@ -23,12 +25,27 @@ function isOllamaUnreachableError(error: string): boolean {
   );
 }
 
+/** True when the user is asking for a full list or count of schema objects (needs full schema, not top-k). */
+function isBroadSchemaQuery(message: string): boolean {
+  const lower = message.toLowerCase().trim();
+  const listOrCount =
+    /\b(list|count|how\s+many|what\s+are|every|all)\s+(the\s+)?(tables?|views?|stored\s+procedures?|procedures?|functions?)/i.test(
+      lower
+    ) ||
+    /(tables?|views?|stored\s+procedures?|procedures?|functions?)\s+(in\s+(the\s+)?database|in\s+total)/i.test(
+      lower
+    ) ||
+    /^(tables?|views?|list|count)\s*[?.]?$/i.test(lower);
+  return listOrCount;
+}
+
 type PostMessage = (message: ExtensionToWebviewMessage) => void;
 
 interface Services {
   connectionManager: ConnectionManager;
   schemaService: SchemaService;
   ollamaService: OllamaService;
+  promptBuilder: PromptBuilder;
   embeddingService: EmbeddingService;
   vectorStoreManager: VectorStoreManager;
   indexer: Indexer;
@@ -151,9 +168,87 @@ export class MessageRouter {
           }
           break;
         }
-        case "CHAT":
-          // TODO: embed query, vector search, build RAG prompt, stream CHAT_CHUNK events
+        case "CHAT": {
+          const { connectionId, message: userMessage, history } = message.payload;
+          const config = await this.services.connectionManager.getById(connectionId);
+          if (!config) {
+            post({ type: "CHAT_ERROR", payload: { error: "Connection not found" } });
+            break;
+          }
+          const useFullSchema = isBroadSchemaQuery(userMessage);
+          const topK = 30;
+          const postThinking = (payload: ChatThinking) =>
+            post({ type: "CHAT_THINKING", payload });
+
+          let searchQuery = userMessage;
+          if (!useFullSchema && history.length > 0) {
+            try {
+              const rewritePrompt = this.services.promptBuilder.buildQueryRewritePrompt(history, userMessage);
+              const rewritten = await this.services.ollamaService.rewriteQueryForSearch(rewritePrompt);
+              if (rewritten.length > 0) searchQuery = rewritten;
+            } catch (e) {
+              logger.warn(`Query rewrite failed, using original message: ${e instanceof Error ? e.message : e}`);
+            }
+          }
+
+          try {
+            let chunks: SchemaChunk[];
+            let searchMs: number | undefined;
+
+            if (useFullSchema) {
+              postThinking({ step: "searching" });
+              const t0 = Date.now();
+              chunks = await this.services.vectorStoreManager.getAllChunks(connectionId);
+              searchMs = Date.now() - t0;
+            } else {
+              postThinking({ step: "embedding" });
+              const queryEmbedding = await this.services.embeddingService.embed(searchQuery);
+              postThinking({ step: "searching" });
+              const t0 = Date.now();
+              chunks = await this.services.vectorStoreManager.search(connectionId, queryEmbedding, {
+                topK,
+                queryText: searchQuery,
+              });
+              searchMs = Date.now() - t0;
+            }
+
+            const byType: Record<string, number> = {};
+            for (const c of chunks) {
+              byType[c.objectType] = (byType[c.objectType] ?? 0) + 1;
+            }
+            const objectNames = chunks.slice(0, 8).map((c) => `${c.schema}.${c.objectName}`);
+            const systemPrompt = this.services.promptBuilder.buildRagSystemPrompt(chunks, config.database);
+            const contextTokens = Math.round(systemPrompt.length / 4);
+
+            const contextPayload = {
+              chunksUsed: chunks.length,
+              byType,
+              objectNames,
+              searchMs,
+              contextTokens,
+            };
+            postThinking({ step: "context", context: contextPayload });
+
+            postThinking({
+              step: "generating",
+              model: this.services.ollamaService.getModelName(),
+              context: contextPayload,
+            });
+
+            await this.services.ollamaService.chat(
+              systemPrompt,
+              history,
+              userMessage,
+              (token) => post({ type: "CHAT_CHUNK", payload: { token } })
+            );
+            post({ type: "CHAT_DONE" });
+          } catch (err) {
+            const error = err instanceof Error ? err.message : String(err);
+            logger.error("Chat RAG failed", err);
+            post({ type: "CHAT_ERROR", payload: { error } });
+          }
           break;
+        }
         case "CLEAR_INDEX":
           // TODO: clear index for connection, post INDEX_CLEARED
           break;

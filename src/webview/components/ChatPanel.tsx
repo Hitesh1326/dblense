@@ -1,12 +1,37 @@
 import React, { useRef, useEffect, useState, KeyboardEvent } from "react";
-import { Database, Trash2 } from "lucide-react";
-import { ChatMessage, CrawlProgress } from "../../shared/types";
+import { Database, Trash2, Sparkles, Check, Loader2 } from "lucide-react";
+import { ChatMessage, CrawlProgress, ChatThinking, ChatThinkingStep } from "../../shared/types";
 import { IndexFirstCard } from "./IndexFirstCard";
 import { ReindexingBanner } from "./ReindexingBanner";
+
+const STEPS_ORDER: ChatThinkingStep[] = ["embedding", "searching", "context", "generating"];
+
+const STEP_LABELS: Record<ChatThinkingStep, string> = {
+  embedding: "Embedding your question",
+  searching: "Searching schema",
+  context: "Building context",
+  generating: "Generating answer",
+};
+
+const TYPE_LABELS: Record<string, { singular: string; plural: string }> = {
+  table: { singular: "table", plural: "tables" },
+  view: { singular: "view", plural: "views" },
+  stored_procedure: { singular: "stored procedure", plural: "stored procedures" },
+  function: { singular: "function", plural: "functions" },
+  column: { singular: "column", plural: "columns" },
+};
+
+function formatTypeCount(type: string, n: number): string {
+  const labels = TYPE_LABELS[type];
+  const label = labels ? (n === 1 ? labels.singular : labels.plural) : type;
+  return `${n} ${label}`;
+}
 
 interface ChatPanelProps {
   messages: ChatMessage[];
   isStreaming: boolean;
+  thinking: ChatThinking | null;
+  showThinkingBlock: boolean;
   onSend: (text: string) => void;
   onClear: () => void;
   connectionId: string | null;
@@ -25,6 +50,8 @@ interface ChatPanelProps {
 export function ChatPanel({
   messages,
   isStreaming,
+  thinking,
+  showThinkingBlock,
   onSend,
   onClear,
   connectionId,
@@ -98,7 +125,11 @@ export function ChatPanel({
           <MessageBubble key={i} message={msg} />
         ))}
 
-        {isStreaming && (
+        {isStreaming && thinking && showThinkingBlock && (
+          <ThinkingBlock thinking={thinking} />
+        )}
+
+        {isStreaming && !showThinkingBlock && (
           <div className="flex gap-1 pl-2">
             <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:0ms]" />
             <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:150ms]" />
@@ -108,7 +139,6 @@ export function ChatPanel({
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
       <div className="p-3 border-t border-vscode-panel-border">
         <div className="flex gap-2">
           <textarea
@@ -143,6 +173,84 @@ export function ChatPanel({
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Renders the thinking progress (steps + context summary) until the first token arrives. */
+function ThinkingBlock({ thinking }: { thinking: ChatThinking }) {
+  const currentIndex = STEPS_ORDER.indexOf(thinking.step);
+  const ctx = thinking.context;
+  const breakdown =
+    ctx && Object.keys(ctx.byType).length > 0
+      ? Object.entries(ctx.byType)
+          .map(([type, n]) => formatTypeCount(type, n))
+          .join(", ")
+      : null;
+  const contextSummary =
+    ctx &&
+    [
+      `${ctx.chunksUsed} objects`,
+      breakdown || null,
+      ctx.searchMs != null ? `${(ctx.searchMs / 1000).toFixed(2)}s` : null,
+      ctx.contextTokens != null ? `~${(ctx.contextTokens / 1000).toFixed(1)}k tokens` : null,
+    ]
+      .filter(Boolean)
+      .join(" \u00B7 ");
+  const includingTooltip =
+    ctx && ctx.objectNames.length > 0 ? ctx.objectNames.join(", ") : undefined;
+
+  return (
+    <div className="flex justify-start mb-2" role="status" aria-live="polite" aria-label="Assistant is thinking">
+      <div className="max-w-[85%] rounded-xl py-2.5 px-3 bg-vscode-editor-inactiveSelectionBackground/25">
+        <div className="flex items-center gap-2 mb-2 thinking-pulse">
+          <Sparkles size={12} className="text-vscode-descriptionForeground/80 shrink-0" aria-hidden />
+          <span className="text-[11px] text-vscode-descriptionForeground/90 tracking-wide uppercase">Thinking</span>
+        </div>
+
+        <div className="space-y-1">
+          {STEPS_ORDER.map((step, i) => {
+            const isDone = i < currentIndex;
+            const isCurrent = i === currentIndex;
+            const label =
+              step === "generating" && thinking.model
+                ? `${STEP_LABELS[step]} with ${thinking.model}`
+                : STEP_LABELS[step];
+            return (
+              <div
+                key={step}
+                className={`flex items-center gap-2 min-h-[20px] rounded px-1.5 -mx-1.5 transition-colors ${
+                  isCurrent ? "bg-vscode-list-activeSelectionBackground/20" : ""
+                } ${isCurrent ? "border-l-2 border-vscode-focusBorder pl-2" : "border-l-2 border-transparent pl-2"}`}
+              >
+                <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-vscode-descriptionForeground/90">
+                  {isDone && <Check size={12} strokeWidth={2.5} aria-hidden />}
+                  {isCurrent && (
+                    <Loader2 size={12} className="animate-spin text-vscode-foreground/80" aria-label="Loading" />
+                  )}
+                  {!isDone && !isCurrent && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-vscode-descriptionForeground/40" aria-hidden />
+                  )}
+                </span>
+                <span
+                  className={`text-[11px] ${isCurrent ? "text-vscode-foreground" : "text-vscode-descriptionForeground/90"}`}
+                >
+                  {label}{isCurrent ? "…" : ""}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {ctx && contextSummary && (
+          <p
+            className="mt-2 text-[10px] text-vscode-descriptionForeground/70 leading-relaxed cursor-help"
+            title={includingTooltip ? `Including: ${includingTooltip}` : undefined}
+          >
+            {contextSummary}
+          </p>
+        )}
       </div>
     </div>
   );

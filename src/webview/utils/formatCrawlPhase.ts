@@ -7,10 +7,20 @@ export function formatCrawlPhase(progress: CrawlProgress): string {
       ? `Tables ${progress.current}/${progress.total}${progress.currentObject ? ` — ${progress.currentObject}` : ""}`
       : "Crawling tables…";
   }
+  if (progress.phase === "crawling_views") {
+    return progress.total > 0
+      ? `Views ${progress.current}/${progress.total}${progress.currentObject ? ` — ${progress.currentObject}` : ""}`
+      : "Crawling views…";
+  }
   if (progress.phase === "crawling_sps") {
     return progress.total > 0
       ? `Stored procedures ${progress.current}/${progress.total}${progress.currentObject ? ` — ${progress.currentObject}` : ""}`
       : "Crawling stored procedures…";
+  }
+  if (progress.phase === "crawling_functions") {
+    return progress.total > 0
+      ? `Functions ${progress.current}/${progress.total}${progress.currentObject ? ` — ${progress.currentObject}` : ""}`
+      : "Crawling functions…";
   }
   if (progress.phase === "summarizing") {
     return progress.total > 0

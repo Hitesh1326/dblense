@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ChatMessage } from "../../shared/types";
+import { ChatMessage, ChatThinking } from "../../shared/types";
 import { postMessage, onMessage } from "../vscodeApi";
 
 interface UseChatReturn {
   messages: ChatMessage[];
   isStreaming: boolean;
+  thinking: ChatThinking | null;
+  showThinkingBlock: boolean;
   sendMessage: (text: string) => void;
   clearHistory: () => void;
 }
@@ -12,12 +14,18 @@ interface UseChatReturn {
 export function useChat(connectionId: string | null): UseChatReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [thinking, setThinking] = useState<ChatThinking | null>(null);
+  const [showThinkingBlock, setShowThinkingBlock] = useState(false);
   const streamBufferRef = useRef("");
 
   useEffect(() => {
     const unsubscribe = onMessage((message) => {
       switch (message.type) {
+        case "CHAT_THINKING":
+          setThinking(message.payload);
+          break;
         case "CHAT_CHUNK":
+          setShowThinkingBlock(false);
           streamBufferRef.current += message.payload.token;
           setMessages((prev) => {
             const last = prev[prev.length - 1];
@@ -39,10 +47,14 @@ export function useChat(connectionId: string | null): UseChatReturn {
           break;
         case "CHAT_DONE":
           setIsStreaming(false);
+          setShowThinkingBlock(false);
+          setThinking(null);
           streamBufferRef.current = "";
           break;
         case "CHAT_ERROR":
           setIsStreaming(false);
+          setShowThinkingBlock(false);
+          setThinking(null);
           streamBufferRef.current = "";
           setMessages((prev) => [
             ...prev,
@@ -71,6 +83,7 @@ export function useChat(connectionId: string | null): UseChatReturn {
 
       setMessages((prev) => [...prev, userMessage]);
       setIsStreaming(true);
+      setShowThinkingBlock(true);
 
       postMessage({
         type: "CHAT",
@@ -89,5 +102,5 @@ export function useChat(connectionId: string | null): UseChatReturn {
     streamBufferRef.current = "";
   }, []);
 
-  return { messages, isStreaming, sendMessage, clearHistory };
+  return { messages, isStreaming, thinking, showThinkingBlock, sendMessage, clearHistory };
 }

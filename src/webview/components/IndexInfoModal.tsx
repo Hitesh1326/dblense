@@ -54,10 +54,14 @@ const STATUS_DOT_COLOR: Record<IndexStatus, string> = {
 };
 
 const STAT_ROWS: { key: keyof IndexStats; label: string; tooltip: string }[] = [
+  { key: "tableChunks", label: "Tables", tooltip: "Number of tables in the index." },
+  { key: "viewChunks", label: "Views", tooltip: "Number of views in the index." },
+  { key: "spChunks", label: "Stored procedures", tooltip: "Number of stored procedures in the index." },
+  { key: "functionChunks", label: "Functions", tooltip: "Number of functions in the index." },
   {
     key: "totalChunks",
     label: "Indexed items",
-    tooltip: "Number of schema objects in the index (tables, views, stored procedures, etc.). Each item is one searchable unit.",
+    tooltip: "Total schema objects in the index. Each item is one searchable unit.",
   },
   {
     key: "chunksWithSummary",

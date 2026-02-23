@@ -58,11 +58,27 @@ export interface SpParameterMeta {
   direction: "IN" | "OUT" | "INOUT";
 }
 
+export interface ViewMeta {
+  schema: string;
+  name: string;
+  columns: ColumnMeta[];
+  definition: string;
+}
+
+export interface FunctionMeta {
+  schema: string;
+  name: string;
+  definition: string;
+  parameters: SpParameterMeta[];
+}
+
 export interface DatabaseSchema {
   connectionId: string;
   databaseName: string;
   tables: TableMeta[];
+  views: ViewMeta[];
   storedProcedures: StoredProcedureMeta[];
+  functions: FunctionMeta[];
   crawledAt: string;
 }
 
@@ -71,7 +87,7 @@ export interface DatabaseSchema {
 export interface SchemaChunk {
   id: string;
   connectionId: string;
-  objectType: "table" | "column" | "stored_procedure";
+  objectType: "table" | "column" | "stored_procedure" | "view" | "function";
   objectName: string;
   schema: string;
   content: string;
@@ -107,6 +123,7 @@ export type ExtensionToWebviewMessage =
   | { type: "CRAWL_ERROR"; payload: { connectionId: string; error: string } }
   | { type: "CRAWLED_CONNECTION_IDS"; payload: string[] }
   | { type: "CHAT_CHUNK"; payload: { token: string } }
+  | { type: "CHAT_THINKING"; payload: ChatThinking }
   | { type: "CHAT_DONE" }
   | { type: "CHAT_ERROR"; payload: { error: string } }
   | { type: "INDEX_CLEARED"; payload: { connectionId: string } }
@@ -116,7 +133,9 @@ export type ExtensionToWebviewMessage =
 export interface IndexStats {
   totalChunks: number;
   tableChunks: number;
+  viewChunks: number;
   spChunks: number;
+  functionChunks: number;
   chunksWithSummary: number;
   chunksWithEmbedding: number;
   lastCrawledAt: string | null;
@@ -130,11 +149,31 @@ export interface ChatMessage {
   timestamp: string;
 }
 
+/** Thinking step shown while waiting for chat response. */
+export type ChatThinkingStep = "embedding" | "searching" | "context" | "generating";
+
+/** Payload when step is "context" — what we retrieved and are using. */
+export interface ChatThinkingContext {
+  chunksUsed: number;
+  byType: Record<string, number>;
+  objectNames: string[];
+  searchMs?: number;
+  contextTokens?: number;
+}
+
+export interface ChatThinking {
+  step: ChatThinkingStep;
+  /** Set when step is "context"; also sent with "generating" so UI can show context + model together. */
+  context?: ChatThinkingContext;
+  /** Set when step is "generating". */
+  model?: string;
+}
+
 // ─── Crawl ────────────────────────────────────────────────────────────────────
 
 export interface CrawlProgress {
   connectionId: string;
-  phase: "connecting" | "crawling_tables" | "crawling_sps" | "summarizing" | "embedding" | "storing";
+  phase: "connecting" | "crawling_tables" | "crawling_views" | "crawling_sps" | "crawling_functions" | "summarizing" | "embedding" | "storing";
   current: number;
   total: number;
   currentObject?: string;
