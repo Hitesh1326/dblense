@@ -39,14 +39,6 @@
       {
         "command": "schemasight.addConnection",
         "title": "SchemaSight: Add Database Connection"
-      },
-      {
-        "command": "schemasight.crawlSchema",
-        "title": "SchemaSight: Crawl & Index Database Schema"
-      },
-      {
-        "command": "schemasight.clearIndex",
-        "title": "SchemaSight: Clear Vector Index"
       }
     ],
     "viewsContainers": {

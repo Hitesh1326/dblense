@@ -15,6 +15,8 @@ export function activate(context: vscode.ExtensionContext): void {
   const schemaService = new SchemaService();
   const ollamaService = new OllamaService();
   const embeddingService = new EmbeddingService();
+  // Preload embedding model in background so first chat doesn't wait for model load
+  void embeddingService.initialize();
   const vectorStoreManager = new VectorStoreManager(context.globalStorageUri);
   const promptBuilder = new PromptBuilder();
   const spParser = new SpParser();
@@ -23,12 +25,13 @@ export function activate(context: vscode.ExtensionContext): void {
     connectionManager,
     schemaService,
     ollamaService,
+    promptBuilder,
     embeddingService,
     vectorStoreManager,
     indexer,
   });
 
-  registerCommands(context, panelManager, connectionManager, vectorStoreManager);
+  registerCommands(context, panelManager);
 
   // Sidebar view provider — renders the same React app inside the sidebar
   context.subscriptions.push(

@@ -5,6 +5,7 @@ import * as path from "path";
 import { ConnectionManager } from "../db/ConnectionManager";
 import { SchemaService } from "../db/SchemaService";
 import { OllamaService } from "../llm/OllamaService";
+import { PromptBuilder } from "../llm/PromptBuilder";
 import { EmbeddingService } from "../embeddings/EmbeddingService";
 import { VectorStoreManager } from "../vectorstore/VectorStoreManager";
 import { Indexer } from "../vectorstore/Indexer";
@@ -15,6 +16,7 @@ interface Services {
   connectionManager: ConnectionManager;
   schemaService: SchemaService;
   ollamaService: OllamaService;
+  promptBuilder: PromptBuilder;
   embeddingService: EmbeddingService;
   vectorStoreManager: VectorStoreManager;
   indexer: Indexer;

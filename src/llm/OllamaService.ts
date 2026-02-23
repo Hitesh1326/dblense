@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { ChatMessage } from "../shared/types";
+import type { ChatMessage } from "../shared/types";
 
 type StreamCallback = (token: string) => void;
 
@@ -7,6 +7,8 @@ const DEFAULT_BASE_URL = "http://localhost:11434";
 const DEFAULT_MODEL = "llama3.1:8b";
 
 const SUMMARIZE_SYSTEM = `Summarize the following database schema or stored procedure text in 1-3 concise sentences suitable for semantic search. Output only the summary, no preamble.`;
+
+const QUERY_REWRITE_SYSTEM = `You are a query rewriter for a database schema search. Given a conversation and the latest user message, output a single standalone search query that captures what the user is asking. Resolve references like "it", "that", "the procedure" using the conversation. Output only the search query, one line, no preamble or explanation.`;
 
 /**
  * Thin wrapper around the Ollama HTTP API.
@@ -83,6 +85,31 @@ export class OllamaService {
       throw new Error("Ollama response missing or invalid 'response' field");
     }
     return summary.trim();
+  }
+
+  /**
+   * Rewrite a follow-up message into a standalone search query using the given prompt
+   * (built from conversation + current message by PromptBuilder).
+   */
+  async rewriteQueryForSearch(prompt: string): Promise<string> {
+    const url = `${this.baseUrl}/api/generate`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: this.model,
+        prompt,
+        system: QUERY_REWRITE_SYSTEM,
+        stream: false,
+      }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Ollama query rewrite failed (${res.status}): ${text || res.statusText}`);
+    }
+    const data = (await res.json()) as { response?: string };
+    const out = data.response;
+    return typeof out === "string" ? out.trim() : "";
   }
 
   /**
