@@ -4,7 +4,9 @@ import {
   DatabaseSchema,
   TableMeta,
   ColumnMeta,
+  ViewMeta,
   StoredProcedureMeta,
+  FunctionMeta,
   SpParameterMeta,
   CrawlProgressCallback,
   CrawlProgress,
@@ -52,7 +54,9 @@ export class MssqlDriver {
 
     try {
       const tables: TableMeta[] = [];
+      const views: ViewMeta[] = [];
       const storedProcedures: StoredProcedureMeta[] = [];
+      const functions: FunctionMeta[] = [];
 
       // ─── Tables + columns ─────────────────────────────────────────────────
       const tablesResult = await pool
@@ -168,6 +172,53 @@ export class MssqlDriver {
         });
       }
 
+      // ─── Views ─────────────────────────────────────────────────────────────
+      const viewsResult = await pool
+        .request()
+        .query<{ schema_name: string; view_name: string; object_id: number }>(`
+        SELECT s.name AS schema_name, v.name AS view_name, v.object_id
+        FROM sys.views v
+        INNER JOIN sys.schemas s ON v.schema_id = s.schema_id
+        ORDER BY s.name, v.name
+      `);
+      const viewList = viewsResult.recordset ?? [];
+      const viewColumnsResult = await pool
+        .request()
+        .query<{ object_id: number; column_name: string; type_name: string; is_nullable: boolean; column_id: number }>(`
+        SELECT c.object_id, c.name AS column_name, ty.name AS type_name, c.is_nullable, c.column_id
+        FROM sys.columns c
+        INNER JOIN sys.types ty ON c.user_type_id = ty.user_type_id
+        WHERE c.object_id IN (SELECT object_id FROM sys.views)
+        ORDER BY c.object_id, c.column_id
+      `);
+      type ViewColumnRow = { object_id: number; column_name: string; type_name: string; is_nullable: boolean; column_id: number };
+      const viewColumnsList: ViewColumnRow[] = viewColumnsResult.recordset ? Array.from(viewColumnsResult.recordset) : [];
+      const viewColumnsByView = new Map<number, ViewColumnRow[]>();
+      for (const col of viewColumnsList) {
+        if (!viewColumnsByView.has(col.object_id)) viewColumnsByView.set(col.object_id, []);
+        viewColumnsByView.get(col.object_id)!.push(col);
+      }
+      const totalViews = viewList.length;
+      for (let i = 0; i < totalViews; i++) {
+        throwIfAborted();
+        const v = viewList[i];
+        report("crawling_views", i + 1, totalViews, `${v.schema_name}.${v.view_name}`);
+        const defResult = await pool
+          .request()
+          .input("obj_id", sql.Int, v.object_id)
+          .query<{ definition: string | null }>("SELECT OBJECT_DEFINITION(@obj_id) AS definition");
+        const definition = defResult.recordset?.[0]?.definition ?? "";
+        const cols = viewColumnsByView.get(v.object_id) ?? [];
+        const columnMetas: ColumnMeta[] = cols.map((c) => ({
+          name: c.column_name,
+          dataType: c.type_name,
+          nullable: c.is_nullable,
+          isPrimaryKey: false,
+          isForeignKey: false,
+        }));
+        views.push({ schema: v.schema_name, name: v.view_name, columns: columnMetas, definition });
+      }
+
       // ─── Stored procedures ─────────────────────────────────────────────────
       const procsResult = await pool
         .request()
@@ -215,11 +266,52 @@ export class MssqlDriver {
         });
       }
 
+      // ─── Functions ─────────────────────────────────────────────────────────
+      const funcsResult = await pool
+        .request()
+        .query<{ object_id: number; schema_name: string; function_name: string }>(`
+        SELECT o.object_id, s.name AS schema_name, o.name AS function_name
+        FROM sys.objects o
+        INNER JOIN sys.schemas s ON o.schema_id = s.schema_id
+        WHERE o.type IN ('FN', 'IF', 'TF')
+        ORDER BY s.name, o.name
+      `);
+      const funcList = funcsResult.recordset ?? [];
+      const totalFuncs = funcList.length;
+      for (let i = 0; i < totalFuncs; i++) {
+        throwIfAborted();
+        const f = funcList[i];
+        report("crawling_functions", i + 1, totalFuncs, `${f.schema_name}.${f.function_name}`);
+        const defResult = await pool
+          .request()
+          .input("obj_id", sql.Int, f.object_id)
+          .query<{ definition: string | null }>("SELECT OBJECT_DEFINITION(@obj_id) AS definition");
+        const definition = defResult.recordset?.[0]?.definition ?? "";
+        const paramsResult = await pool
+          .request()
+          .input("obj_id", sql.Int, f.object_id)
+          .query<{ name: string; type_name: string; is_output: boolean }>(`
+          SELECT pr.name, ty.name AS type_name, pr.is_output
+          FROM sys.parameters pr
+          INNER JOIN sys.types ty ON pr.user_type_id = ty.user_type_id
+          WHERE pr.object_id = @obj_id AND pr.parameter_id > 0
+          ORDER BY pr.parameter_id
+        `);
+        const parameters: SpParameterMeta[] = (paramsResult.recordset ?? []).map((row) => ({
+          name: row.name,
+          dataType: row.type_name,
+          direction: row.is_output ? "OUT" : "IN",
+        }));
+        functions.push({ schema: f.schema_name, name: f.function_name, definition, parameters });
+      }
+
       return {
         connectionId,
         databaseName: config.database,
         tables,
+        views,
         storedProcedures,
+        functions,
         crawledAt: new Date().toISOString(),
       };
     } finally {
