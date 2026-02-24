@@ -14,6 +14,7 @@ export class EmbeddingService {
   private pipelineInstance: FeatureExtractionPipeline | null = null;
   private initPromise: Promise<void> | null = null;
 
+  /** Model name from VS Code config (schemasight.embeddingModel). Resolved at first pipeline load. */
   private get modelName(): string {
     return vscode.workspace
       .getConfiguration("schemasight")
@@ -21,12 +22,14 @@ export class EmbeddingService {
   }
 
   /**
-   * Ensure the pipeline is loaded. Call before embed/embedBatch, or use explicitly to preload.
+   * Ensures the pipeline is loaded. Call before embed/embedBatch, or use explicitly to preload.
+   * @returns Resolves when the model is ready (or already loaded).
    */
   async initialize(): Promise<void> {
     await this.ensurePipeline();
   }
 
+  /** Loads the feature-extraction pipeline once; concurrent callers share the same load. */
   private async ensurePipeline(): Promise<FeatureExtractionPipeline> {
     if (this.pipelineInstance) return this.pipelineInstance;
     if (this.initPromise) {
@@ -44,7 +47,9 @@ export class EmbeddingService {
   }
 
   /**
-   * Embed a single text; returns a float vector (e.g. 384-dim for MiniLM-L6).
+   * Embeds a single text into a float vector (e.g. 384-dim for MiniLM-L6).
+   * @param text Input string to embed.
+   * @returns One embedding vector as an array of numbers.
    */
   async embed(text: string): Promise<number[]> {
     const pipe = await this.ensurePipeline();
@@ -53,7 +58,9 @@ export class EmbeddingService {
   }
 
   /**
-   * Embed multiple texts in one forward pass; returns an array of vectors.
+   * Embeds multiple texts in one forward pass; more efficient than calling embed repeatedly.
+   * @param texts Input strings to embed (empty array returns []).
+   * @returns Array of embedding vectors, one per input text.
    */
   async embedBatch(texts: string[]): Promise<number[][]> {
     if (texts.length === 0) return [];
@@ -62,17 +69,18 @@ export class EmbeddingService {
     return this.tensorToVectors(output);
   }
 
+  /** Converts pipeline output for a single text (shape [embedDim]) to a plain number array. */
   private tensorToVector(tensor: { data: Float32Array; dims: number[] }): number[] {
     return Array.from(tensor.data);
   }
 
+  /** Converts pipeline output for a batch (shape [batchSize, embedDim]) to an array of number arrays. */
   private tensorToVectors(tensor: { data: Float32Array; dims: number[] }): number[][] {
     const dims = tensor.dims;
     const data = tensor.data;
     if (dims.length === 1) {
       return [Array.from(data)];
     }
-    // shape [batchSize, embedDim]
     const [batchSize, embedDim] = dims;
     const out: number[][] = [];
     for (let i = 0; i < batchSize; i++) {

@@ -10,34 +10,41 @@ const SUMMARIZE_SYSTEM = `Summarize the following database schema or stored proc
 
 const QUERY_REWRITE_SYSTEM = `You are a query rewriter for a database schema search. Given a conversation and the latest user message, output a single standalone search query that captures what the user is asking. Resolve references like "it", "that", "the procedure" using the conversation. Output only the search query, one line, no preamble or explanation.`;
 
+/** Response shape from GET /api/tags. */
+interface OllamaTagsResponse {
+  models?: { name?: string }[];
+}
+
 /**
  * Thin wrapper around the Ollama HTTP API.
  * Uses Node's built-in fetch (Node 18+) — no external HTTP client needed.
  */
 export class OllamaService {
+  /** Base URL from VS Code config (schemasight.ollamaBaseUrl). */
   private get baseUrl(): string {
     return vscode.workspace.getConfiguration("schemasight").get("ollamaBaseUrl", DEFAULT_BASE_URL);
   }
 
+  /** Model name from VS Code config (schemasight.ollamaModel). */
   private get model(): string {
     return vscode.workspace.getConfiguration("schemasight").get("ollamaModel", DEFAULT_MODEL);
   }
 
   /**
-   * Configurable model name (for display and pull hint).
+   * Returns the configured model name (for display and pull hint).
+   * @returns The current Ollama model name.
    */
   getModelName(): string {
     return this.model;
   }
 
   /**
-   * Check if Ollama is running and reachable (GET /api/tags).
+   * Checks if Ollama is running and reachable (GET /api/tags).
+   * @returns True if the tags endpoint returns a valid response; false on network or parse error.
    */
   async isAvailable(): Promise<boolean> {
     try {
-      const res = await fetch(`${this.baseUrl}/api/tags`, { method: "GET" });
-      if (!res.ok) return false;
-      const data = (await res.json()) as { models?: unknown[] };
+      const data = await this.getTags();
       return Array.isArray(data?.models);
     } catch {
       return false;
@@ -45,13 +52,12 @@ export class OllamaService {
   }
 
   /**
-   * Check if the configured model is present in Ollama (already pulled).
+   * Checks if the configured model is present in Ollama (already pulled).
+   * @returns True if the model appears in /api/tags; false otherwise.
    */
   async isModelPulled(): Promise<boolean> {
     try {
-      const res = await fetch(`${this.baseUrl}/api/tags`, { method: "GET" });
-      if (!res.ok) return false;
-      const data = (await res.json()) as { models?: { name?: string }[] };
+      const data = await this.getTags();
       const models = data?.models ?? [];
       const want = this.model;
       return models.some((m) => typeof m.name === "string" && m.name === want);
@@ -61,59 +67,35 @@ export class OllamaService {
   }
 
   /**
-   * Summarize content for indexing (POST /api/generate, non-streaming).
+   * Summarizes content for indexing (POST /api/generate, non-streaming).
+   * @param content Raw schema or procedure text to summarize.
+   * @returns A short summary (1–3 sentences); throws on API or invalid response.
    */
   async summarize(content: string): Promise<string> {
-    const url = `${this.baseUrl}/api/generate`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: this.model,
-        prompt: content,
-        system: SUMMARIZE_SYSTEM,
-        stream: false,
-      }),
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Ollama generate failed (${res.status}): ${text || res.statusText}`);
-    }
-    const data = (await res.json()) as { response?: string };
-    const summary = data.response;
-    if (typeof summary !== "string") {
+    const raw = await this.generate(content, SUMMARIZE_SYSTEM);
+    if (typeof raw !== "string") {
       throw new Error("Ollama response missing or invalid 'response' field");
     }
-    return summary.trim();
+    return raw.trim();
   }
 
   /**
-   * Rewrite a follow-up message into a standalone search query using the given prompt
-   * (built from conversation + current message by PromptBuilder).
+   * Rewrites a follow-up message into a standalone search query (prompt built from conversation + current message by PromptBuilder).
+   * @param prompt Full prompt for the rewriter (conversation + latest message).
+   * @returns Standalone search query string, or empty string if response is missing/invalid.
    */
   async rewriteQueryForSearch(prompt: string): Promise<string> {
-    const url = `${this.baseUrl}/api/generate`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: this.model,
-        prompt,
-        system: QUERY_REWRITE_SYSTEM,
-        stream: false,
-      }),
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Ollama query rewrite failed (${res.status}): ${text || res.statusText}`);
-    }
-    const data = (await res.json()) as { response?: string };
-    const out = data.response;
-    return typeof out === "string" ? out.trim() : "";
+    const raw = await this.generate(prompt, QUERY_REWRITE_SYSTEM);
+    return typeof raw === "string" ? raw.trim() : "";
   }
 
   /**
    * Chat with history; streams tokens via onToken (POST /api/chat with stream: true).
+   * @param systemPrompt System prompt (e.g. RAG context).
+   * @param history Previous messages (role + content).
+   * @param userMessage Latest user message.
+   * @param onToken Callback invoked for each streamed token.
+   * @throws Error on non-OK response or missing response body.
    */
   async chat(
     systemPrompt: string,
@@ -147,44 +129,95 @@ export class OllamaService {
       throw new Error("Ollama chat response has no body");
     }
 
+    try {
+      await this.streamChatResponse(reader, onToken);
+    } finally {
+      reader.releaseLock();
+    }
+  }
+
+  /**
+   * Fetches GET /api/tags (list of models). Shared by isAvailable and isModelPulled.
+   * @returns Parsed tags response; throws on network or non-OK response.
+   */
+  private async getTags(): Promise<OllamaTagsResponse> {
+    const res = await fetch(`${this.baseUrl}/api/tags`, { method: "GET" });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Ollama tags failed (${res.status}): ${text || res.statusText}`);
+    }
+    return (await res.json()) as OllamaTagsResponse;
+  }
+
+  /**
+   * Non-streaming POST /api/generate. Used by summarize and rewriteQueryForSearch.
+   * @param prompt User prompt.
+   * @param system System prompt.
+   * @returns The response.response string, or undefined if missing.
+   */
+  private async generate(prompt: string, system: string): Promise<string | undefined> {
+    const url = `${this.baseUrl}/api/generate`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: this.model,
+        prompt,
+        system,
+        stream: false,
+      }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Ollama generate failed (${res.status}): ${text || res.statusText}`);
+    }
+    const data = (await res.json()) as { response?: string };
+    return data.response;
+  }
+
+  /**
+   * Consumes the chat stream: reads chunks, splits by newline, parses JSON lines and invokes onToken for message.content.
+   * @param reader Response body reader.
+   * @param onToken Callback for each token (message.content from each JSON line).
+   */
+  private async streamChatResponse(
+    reader: ReadableStreamDefaultReader<Uint8Array>,
+    onToken: StreamCallback
+  ): Promise<void> {
     const decoder = new TextDecoder();
     let buffer = "";
 
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-          try {
-            const data = JSON.parse(trimmed) as { message?: { content?: string }; done?: boolean };
-            const content = data.message?.content;
-            if (typeof content === "string" && content.length > 0) {
-              onToken(content);
-            }
-          } catch {
-            // ignore malformed JSON lines (e.g. keep_alive pings)
-          }
-        }
-      }
-      // last line in buffer
-      if (buffer.trim()) {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
         try {
-          const data = JSON.parse(buffer.trim()) as { message?: { content?: string } };
+          const data = JSON.parse(trimmed) as { message?: { content?: string }; done?: boolean };
           const content = data.message?.content;
           if (typeof content === "string" && content.length > 0) {
             onToken(content);
           }
         } catch {
-          // ignore
+          // ignore malformed JSON lines (e.g. keep_alive pings)
         }
       }
-    } finally {
-      reader.releaseLock();
+    }
+
+    if (buffer.trim()) {
+      try {
+        const data = JSON.parse(buffer.trim()) as { message?: { content?: string } };
+        const content = data.message?.content;
+        if (typeof content === "string" && content.length > 0) {
+          onToken(content);
+        }
+      } catch {
+        // ignore
+      }
     }
   }
 }

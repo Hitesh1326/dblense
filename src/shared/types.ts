@@ -1,8 +1,10 @@
-// ─── Database Connection ──────────────────────────────────────────────────────
-
+/** Supported database drivers. */
 export type DbDriver = "mssql" | "postgres" | "mysql";
 
-/** Implemented by each DB driver; used by ConnectionManager and SchemaService. */
+/**
+ * Implemented by each DB driver; used by ConnectionManager and SchemaService.
+ * Each operation uses its own connection; no long-lived pool in the driver.
+ */
 export interface IDbDriver {
   testConnection(config: DbConnectionConfig, password: string): Promise<boolean>;
   crawlSchema(
@@ -13,6 +15,7 @@ export interface IDbDriver {
   ): Promise<DatabaseSchema>;
 }
 
+/** Persisted connection config (password stored separately in VS Code SecretStorage). */
 export interface DbConnectionConfig {
   id: string;
   label: string;
@@ -21,12 +24,11 @@ export interface DbConnectionConfig {
   port: number;
   database: string;
   username: string;
-  /** Password is stored separately in VS Code SecretStorage */
+  /** Password is stored separately in VS Code SecretStorage. */
   useSsl: boolean;
 }
 
-// ─── Schema Metadata ──────────────────────────────────────────────────────────
-
+/** Table metadata from a DB crawl (schema name, table name, columns). */
 export interface TableMeta {
   schema: string;
   name: string;
@@ -34,6 +36,7 @@ export interface TableMeta {
   columns: ColumnMeta[];
 }
 
+/** Column metadata: name, type, nullability, PK/FK, and optional default. */
 export interface ColumnMeta {
   name: string;
   dataType: string;
@@ -45,6 +48,7 @@ export interface ColumnMeta {
   defaultValue?: string;
 }
 
+/** Stored procedure metadata: schema, name, definition text, and parameters. */
 export interface StoredProcedureMeta {
   schema: string;
   name: string;
@@ -52,12 +56,14 @@ export interface StoredProcedureMeta {
   parameters: SpParameterMeta[];
 }
 
+/** Parameter metadata for a procedure or function (name, type, IN/OUT). */
 export interface SpParameterMeta {
   name: string;
   dataType: string;
   direction: "IN" | "OUT" | "INOUT";
 }
 
+/** View metadata: schema, name, columns, and definition text. */
 export interface ViewMeta {
   schema: string;
   name: string;
@@ -65,6 +71,7 @@ export interface ViewMeta {
   definition: string;
 }
 
+/** Function metadata: schema, name, definition text, and parameters. */
 export interface FunctionMeta {
   schema: string;
   name: string;
@@ -72,6 +79,7 @@ export interface FunctionMeta {
   parameters: SpParameterMeta[];
 }
 
+/** Full schema result from a crawl: connection id, DB name, tables, views, procedures, functions, and crawl time. */
 export interface DatabaseSchema {
   connectionId: string;
   databaseName: string;
@@ -82,8 +90,7 @@ export interface DatabaseSchema {
   crawledAt: string;
 }
 
-// ─── Vector Store ─────────────────────────────────────────────────────────────
-
+/** A single indexed unit: one table, view, stored procedure, or function (with summary and embedding). */
 export interface SchemaChunk {
   id: string;
   connectionId: string;
@@ -96,8 +103,7 @@ export interface SchemaChunk {
   crawledAt: string;
 }
 
-// ─── Webview ↔ Extension Messages ────────────────────────────────────────────
-
+/** Messages sent from the webview (React UI) to the extension. */
 export type WebviewToExtensionMessage =
   | { type: "GET_CONNECTIONS" }
   | { type: "ADD_CONNECTION"; payload: DbConnectionConfig & { password: string } }
@@ -111,6 +117,7 @@ export type WebviewToExtensionMessage =
   | { type: "CLEAR_INDEX"; payload: { connectionId: string } }
   | { type: "GET_INDEX_STATS"; payload: { connectionId: string } };
 
+/** Messages sent from the extension to the webview. */
 export type ExtensionToWebviewMessage =
   | { type: "CONNECTIONS_LIST"; payload: DbConnectionConfig[] }
   | { type: "OLLAMA_STATUS"; payload: { available: boolean; model?: string; modelPulled?: boolean } }
@@ -130,6 +137,7 @@ export type ExtensionToWebviewMessage =
   | { type: "INDEX_STATS"; payload: { connectionId: string; stats: IndexStats | null } }
   | { type: "ERROR"; payload: { message: string } };
 
+/** Index statistics for a connection (chunk counts by type, summary/embedding coverage, last crawl time). */
 export interface IndexStats {
   totalChunks: number;
   tableChunks: number;
@@ -141,18 +149,17 @@ export interface IndexStats {
   lastCrawledAt: string | null;
 }
 
-// ─── Chat ─────────────────────────────────────────────────────────────────────
-
+/** A single message in the chat history (user or assistant). */
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: string;
 }
 
-/** Thinking step shown while waiting for chat response. */
+/** Thinking step shown in the UI while waiting for the chat response. */
 export type ChatThinkingStep = "embedding" | "searching" | "context" | "generating";
 
-/** Payload when step is "context" — what we retrieved and are using. */
+/** Payload when step is "context": what was retrieved and is being used for RAG. */
 export interface ChatThinkingContext {
   chunksUsed: number;
   byType: Record<string, number>;
@@ -161,6 +168,7 @@ export interface ChatThinkingContext {
   contextTokens?: number;
 }
 
+/** Progress payload for CHAT_THINKING: current step and optional context/model info. */
 export interface ChatThinking {
   step: ChatThinkingStep;
   /** Set when step is "context"; also sent with "generating" so UI can show context + model together. */
@@ -169,8 +177,7 @@ export interface ChatThinking {
   model?: string;
 }
 
-// ─── Crawl ────────────────────────────────────────────────────────────────────
-
+/** Progress update during schema crawl or index: phase, current/total, and optional object name. */
 export interface CrawlProgress {
   connectionId: string;
   phase: "connecting" | "crawling_tables" | "crawling_views" | "crawling_sps" | "crawling_functions" | "summarizing" | "embedding" | "storing";
@@ -179,4 +186,5 @@ export interface CrawlProgress {
   currentObject?: string;
 }
 
+/** Callback invoked by the crawler/indexer with progress updates. */
 export type CrawlProgressCallback = (progress: CrawlProgress) => void;

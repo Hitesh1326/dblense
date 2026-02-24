@@ -7,7 +7,6 @@ import { VectorStoreManager } from "./vectorstore/VectorStoreManager";
 import { EmbeddingService } from "./embeddings/EmbeddingService";
 import { OllamaService } from "./llm/OllamaService";
 import { PromptBuilder } from "./llm/PromptBuilder";
-import { SpParser } from "./parser/SpParser";
 import { Indexer } from "./vectorstore/Indexer";
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -19,8 +18,7 @@ export function activate(context: vscode.ExtensionContext): void {
   void embeddingService.initialize();
   const vectorStoreManager = new VectorStoreManager(context.globalStorageUri);
   const promptBuilder = new PromptBuilder();
-  const spParser = new SpParser();
-  const indexer = new Indexer(ollamaService, promptBuilder, embeddingService, vectorStoreManager, spParser);
+  const indexer = new Indexer(ollamaService, promptBuilder, embeddingService, vectorStoreManager);
   const panelManager = new PanelManager(context, {
     connectionManager,
     schemaService,

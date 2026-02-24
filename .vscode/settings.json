@@ -1,8 +1,11 @@
 {
     "cSpell.words": [
         "lancedb",
+        "Metas",
         "ollama",
+        "recordset",
         "Reindexing",
+        "rerank",
         "schemasight",
         "vectorstore"
     ]
