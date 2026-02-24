@@ -2,6 +2,7 @@ import React, { useState, useCallback } from "react";
 import { X, Info } from "lucide-react";
 import { IndexStats } from "../../shared/types";
 
+/** Props for the index info modal (connection, stats, loading, close/reindex actions). */
 interface IndexInfoModalProps {
   isOpen: boolean;
   connectionId: string;
@@ -12,6 +13,7 @@ interface IndexInfoModalProps {
   onReindex: (connectionId: string) => void;
 }
 
+/** Formats an ISO date string for display; returns "—" if null or invalid. */
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
   try {
@@ -21,14 +23,17 @@ function formatDate(iso: string | null): string {
   }
 }
 
+/** High-level index status for the status badge (complete / partial / none). */
 type IndexStatus = "complete" | "partial" | "none";
 
+/** Derives status from stats: none if no chunks, complete if all embedded, otherwise partial. */
 function getIndexStatus(stats: IndexStats): IndexStatus {
   if (stats.totalChunks === 0) return "none";
   if (stats.chunksWithEmbedding >= stats.totalChunks) return "complete";
   return "partial";
 }
 
+/** Label and short description per status for the status block. */
 const STATUS_COPY: Record<
   IndexStatus,
   { label: string; description: string }
@@ -47,12 +52,14 @@ const STATUS_COPY: Record<
   },
 };
 
+/** Dot color per status (green / amber / red). */
 const STATUS_DOT_COLOR: Record<IndexStatus, string> = {
   complete: "var(--vscode-testing-iconPassed, #89d185)",
   partial: "var(--vscode-editorWarning-foreground, #cca700)",
   none: "var(--vscode-errorForeground, #f48771)",
 };
 
+/** Rows shown in the Details table (key, label, tooltip). */
 const STAT_ROWS: { key: keyof IndexStats; label: string; tooltip: string }[] = [
   { key: "tableChunks", label: "Tables", tooltip: "Number of tables in the index." },
   { key: "viewChunks", label: "Views", tooltip: "Number of views in the index." },
@@ -80,12 +87,14 @@ const STAT_ROWS: { key: keyof IndexStats; label: string; tooltip: string }[] = [
   },
 ];
 
+/** Returns the display string for a stat row (formats lastCrawledAt as date, others as number or "—"). */
 function getStatDisplayValue(stats: IndexStats, key: keyof IndexStats): string {
   const raw = stats[key];
   if (key === "lastCrawledAt") return formatDate(raw as string | null);
   return String(raw ?? "—");
 }
 
+/** True when there are chunks but not all have embeddings (shows warning on Searchable row). */
 function isEmbeddingIncomplete(stats: IndexStats): boolean {
   return (
     stats.totalChunks > 0 &&
@@ -93,6 +102,11 @@ function isEmbeddingIncomplete(stats: IndexStats): boolean {
   );
 }
 
+/**
+ * Modal that shows index stats for a connection: status (complete/partial/none), details table
+ * (tables, views, procedures, functions, summarized, searchable, last updated), and Re-index button.
+ * Close only via the Close button or after Re-index; backdrop click also closes.
+ */
 export function IndexInfoModal({
   isOpen,
   connectionId,

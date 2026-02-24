@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { postMessage, onMessage } from "../vscodeApi";
 
+/** Ollama status: availability, configured model name, and whether that model is pulled. */
 export interface OllamaStatus {
   available: boolean | null;
   model: string | null;
@@ -8,6 +9,13 @@ export interface OllamaStatus {
   check: () => void;
 }
 
+/**
+ * Ollama status driven by extension. On mount calls check() which posts GET_OLLAMA_STATUS;
+ * OLLAMA_STATUS updates available, model, and modelPulled. check() can be called again
+ * (e.g. "Check again" in IndexFirstCard) to re-request status.
+ *
+ * @returns available, model, modelPulled, and check function.
+ */
 export function useOllamaStatus(): OllamaStatus {
   const [available, setAvailable] = useState<boolean | null>(null);
   const [model, setModel] = useState<string | null>(null);

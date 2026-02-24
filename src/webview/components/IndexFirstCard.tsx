@@ -3,12 +3,17 @@ import { Database, AlertTriangle, Check, Copy, Lock, Loader2 } from "lucide-reac
 import type { CrawlProgress } from "../../shared/types";
 import { formatCrawlPhase } from "../utils/formatCrawlPhase";
 
+/** Link for "Learn more" about Ollama. */
 const OLLAMA_LEARN_MORE_URL = "https://ollama.ai";
+/** Fallback model name when config model is not set. */
 const DEFAULT_PULL_MODEL = "llama3.1:8b";
+/** How long to show "Copied" after copying the pull command. */
 const COPY_FEEDBACK_MS = 2000;
 
+/** Visual state of a step in the stepper (blocked = needs action, active = current, done = complete, locked = not yet). */
 type StepperState = "blocked" | "active" | "done" | "locked";
 
+/** Tailwind classes per stepper state for the step circle. */
 const STEPPER_STEP_CLASS: Record<StepperState, string> = {
   done: "bg-vscode-badge-background text-vscode-badge-foreground",
   blocked:
@@ -19,6 +24,7 @@ const STEPPER_STEP_CLASS: Record<StepperState, string> = {
     "border border-vscode-panel-border bg-vscode-editor-inactiveSelectionBackground/30 text-vscode-descriptionForeground",
 };
 
+/** Props for the index-first card (connection name, crawl/Ollama state, and callbacks). */
 interface IndexFirstCardProps {
   connectionName: string;
   onCrawl: () => void;
@@ -31,11 +37,13 @@ interface IndexFirstCardProps {
   onCheckOllama?: () => void;
 }
 
+/** Returns 0–100 percent from crawl progress (0 if total is 0). */
 function getProgressPercent(progress: CrawlProgress): number {
   if (progress.total <= 0) return 0;
   return Math.round((progress.current / progress.total) * 100);
 }
 
+/** Progress bar and phase text for an active crawl. */
 function CrawlProgressBlock({ progress }: { progress: CrawlProgress }) {
   const hasProgress = progress.total > 0;
   const percent = getProgressPercent(progress);
@@ -74,8 +82,10 @@ function CrawlProgressBlock({ progress }: { progress: CrawlProgress }) {
 }
 
 /**
- * Onboarding screen when a connection is selected but not yet indexed.
- * Shows stepper (Verify Ollama → Crawl Schema → Start Chatting), Ollama status, and Crawl CTA.
+ * Onboarding card when a connection is selected but not yet indexed.
+ * Shows a 3-step stepper (Verify Ollama → Crawl Schema → Start Chatting), Ollama status
+ * (checking / ready / not found / need pull), optional crawl progress, and the Crawl schema button.
+ * Copy-pull-command and "Check again" are shown when the model is not pulled or Ollama is unavailable.
  */
 export function IndexFirstCard({
   connectionName,
@@ -243,6 +253,7 @@ export function IndexFirstCard({
   );
 }
 
+/** Single step in the stepper (icon + label); appearance depends on state (done/blocked/active/locked). */
 function StepperStep({ label, state }: { label: string; state: StepperState }) {
   const isLocked = state === "locked";
   return (
@@ -260,6 +271,7 @@ function StepperStep({ label, state }: { label: string; state: StepperState }) {
   );
 }
 
+/** Horizontal line between stepper steps; dimmed when the next step is locked. */
 function StepperConnector({ toLocked }: { toLocked?: boolean }) {
   return (
     <div className="flex items-center justify-center w-16 shrink-0 pt-4" aria-hidden>

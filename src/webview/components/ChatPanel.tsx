@@ -1,11 +1,13 @@
-import React, { useRef, useEffect, useState, KeyboardEvent } from "react";
+import React, { useRef, useEffect, useState, useCallback, KeyboardEvent } from "react";
 import { Database, Trash2, Sparkles, Check, Loader2 } from "lucide-react";
 import { ChatMessage, CrawlProgress, ChatThinking, ChatThinkingStep } from "../../shared/types";
 import { IndexFirstCard } from "./IndexFirstCard";
 import { ReindexingBanner } from "./ReindexingBanner";
 
+/** Order of steps shown in the thinking block. */
 const STEPS_ORDER: ChatThinkingStep[] = ["embedding", "searching", "context", "generating"];
 
+/** Human-readable label per thinking step. */
 const STEP_LABELS: Record<ChatThinkingStep, string> = {
   embedding: "Embedding your question",
   searching: "Searching schema",
@@ -13,6 +15,7 @@ const STEP_LABELS: Record<ChatThinkingStep, string> = {
   generating: "Generating answer",
 };
 
+/** Singular/plural labels for object types (used in context summary). */
 const TYPE_LABELS: Record<string, { singular: string; plural: string }> = {
   table: { singular: "table", plural: "tables" },
   view: { singular: "view", plural: "views" },
@@ -21,12 +24,14 @@ const TYPE_LABELS: Record<string, { singular: string; plural: string }> = {
   column: { singular: "column", plural: "columns" },
 };
 
+/** Formats a count with the correct singular/plural (e.g. "1 table", "2 views"). */
 function formatTypeCount(type: string, n: number): string {
   const labels = TYPE_LABELS[type];
   const label = labels ? (n === 1 ? labels.singular : labels.plural) : type;
   return `${n} ${label}`;
 }
 
+/** Props for the main chat panel (messages, streaming state, connection, crawl, Ollama, and callbacks). */
 interface ChatPanelProps {
   messages: ChatMessage[];
   isStreaming: boolean;
@@ -47,6 +52,11 @@ interface ChatPanelProps {
   onCheckOllama?: () => void;
 }
 
+/**
+ * Main chat UI: message list, thinking block (when enabled), and input area.
+ * If a connection is selected but not yet crawled, shows IndexFirstCard (crawl CTA) instead.
+ * When re-indexing an already-indexed connection, shows ReindexingBanner above the chat.
+ */
 export function ChatPanel({
   messages,
   isStreaming,
@@ -73,19 +83,22 @@ export function ChatPanel({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSend = () => {
+  const handleSend = useCallback(() => {
     const trimmed = input.trim();
     if (!trimmed || isStreaming || !connectionId) return;
     onSend(trimmed);
     setInput("");
-  };
+  }, [input, isStreaming, connectionId, onSend]);
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleSend();
+      }
+    },
+    [handleSend]
+  );
 
   if (connectionId && !isCrawled) {
     return (
@@ -122,7 +135,7 @@ export function ChatPanel({
         )}
 
         {messages.map((msg, i) => (
-          <MessageBubble key={i} message={msg} />
+          <MessageBubble key={`${i}-${msg.timestamp}`} message={msg} />
         ))}
 
         {isStreaming && thinking && showThinkingBlock && (
@@ -178,7 +191,10 @@ export function ChatPanel({
   );
 }
 
-/** Renders the thinking progress (steps + context summary) until the first token arrives. */
+/**
+ * Renders the thinking progress: ordered steps (embedding → searching → context → generating)
+ * with checkmarks for done, spinner for current, and optional context summary (chunks used, types, timing).
+ */
 function ThinkingBlock({ thinking }: { thinking: ChatThinking }) {
   const currentIndex = STEPS_ORDER.indexOf(thinking.step);
   const ctx = thinking.context;
@@ -256,6 +272,7 @@ function ThinkingBlock({ thinking }: { thinking: ChatThinking }) {
   );
 }
 
+/** Single message bubble (user right-aligned, assistant left-aligned). */
 function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
   return (

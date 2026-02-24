@@ -3,19 +3,24 @@ import { Loader2 } from "lucide-react";
 import type { CrawlProgress } from "../../shared/types";
 import { formatCrawlPhase } from "../utils/formatCrawlPhase";
 
+/** Props for the re-indexing banner. */
 interface ReindexingBannerProps {
+  /** Current crawl/index progress (phase, current, total). */
   progress: CrawlProgress;
+  /** Optional cancel handler; when provided, a Cancel button is shown. */
   onCancel?: () => void;
 }
 
+/** Returns 0–100 percent from progress (0 if total is 0). */
 function getProgressPercent(progress: CrawlProgress): number {
   if (progress.total <= 0) return 0;
   return Math.round((progress.current / progress.total) * 100);
 }
 
 /**
- * Compact banner shown in the main content when re-indexing an already-indexed connection.
- * Industry-standard: surface long-running action in the primary pane, not only in the sidebar.
+ * Compact banner shown at the top of the main content when re-indexing an already-indexed connection.
+ * Displays phase text, optional progress bar and percentage, and an optional Cancel button.
+ * Surfaces the long-running action in the primary pane so the user sees it without relying on the sidebar.
  */
 export function ReindexingBanner({ progress, onCancel }: ReindexingBannerProps) {
   const phaseText = formatCrawlPhase(progress);
@@ -29,7 +34,6 @@ export function ReindexingBanner({ progress, onCancel }: ReindexingBannerProps) 
       aria-live="polite"
       aria-label={`Re-indexing: ${phaseText}`}
     >
-      {/* Single row: spinner · title · phase text · percent · cancel */}
       <div className="flex items-center gap-2 min-w-0">
         <Loader2 size={15} className="shrink-0 animate-spin text-vscode-descriptionForeground" aria-hidden />
         <span className="text-sm font-medium text-vscode-foreground shrink-0">Re-indexing…</span>

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { DbConnectionConfig, CrawlProgress, IndexStats } from "../../shared/types";
 import { postMessage, onMessage } from "../vscodeApi";
 
+/** Return type of useConnections: connection list, crawl state, index stats, and actions. */
 interface UseConnectionsReturn {
   connections: DbConnectionConfig[];
   crawledConnectionIds: string[];
@@ -17,6 +18,15 @@ interface UseConnectionsReturn {
   clearIndexInfo: () => void;
 }
 
+/**
+ * Connection list and crawl/index state driven by extension messages. On mount, requests
+ * GET_CONNECTIONS and subscribes to CONNECTIONS_LIST, CONNECTION_ADDED, CONNECTION_REMOVED,
+ * CRAWLED_CONNECTION_IDS, CRAWL_PROGRESS, CRAWL_COMPLETE/CANCELLED/ERROR, and INDEX_STATS.
+ * requestIndexStats(connectionId) triggers GET_INDEX_STATS; INDEX_STATS is applied only when
+ * it matches the last requested id (ref so the effect closure stays correct).
+ *
+ * @returns Connections, crawled ids, crawl progress, action callbacks, index stats, and clearIndexInfo.
+ */
 export function useConnections(): UseConnectionsReturn {
   const [connections, setConnections] = useState<DbConnectionConfig[]>([]);
   const [crawledConnectionIds, setCrawledConnectionIds] = useState<string[]>([]);

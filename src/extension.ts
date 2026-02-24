@@ -9,12 +9,16 @@ import { OllamaService } from "./llm/OllamaService";
 import { PromptBuilder } from "./llm/PromptBuilder";
 import { Indexer } from "./vectorstore/Indexer";
 
+/**
+ * Extension entry point. Wires ConnectionManager, SchemaService, OllamaService, EmbeddingService,
+ * VectorStoreManager, Indexer, and PanelManager; registers commands and the sidebar webview provider.
+ * @param context - VS Code extension context (globalState, secrets, subscriptions, etc.).
+ */
 export function activate(context: vscode.ExtensionContext): void {
   const connectionManager = new ConnectionManager(context.globalState, context.secrets);
   const schemaService = new SchemaService();
   const ollamaService = new OllamaService();
   const embeddingService = new EmbeddingService();
-  // Preload embedding model in background so first chat doesn't wait for model load
   void embeddingService.initialize();
   const vectorStoreManager = new VectorStoreManager(context.globalStorageUri);
   const promptBuilder = new PromptBuilder();
@@ -41,6 +45,9 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 }
 
+/**
+ * Called when the extension is deactivated. Cleanup is handled by disposables registered on context.
+ */
 export function deactivate(): void {
   // cleanup handled by disposables registered on context
 }

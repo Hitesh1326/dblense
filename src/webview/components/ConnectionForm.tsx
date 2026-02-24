@@ -1,57 +1,80 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { DbDriver } from "../../shared/types";
 import type { DbConnectionConfig } from "../../shared/types";
 import { randomId } from "../utils/randomId";
 
+/** Props for the connection form (single callback on successful submit). */
 interface ConnectionFormProps {
+  /** Called with the new connection config and password when the user submits. */
   onAdd: (config: DbConnectionConfig & { password: string }) => void;
 }
 
+/** Default port per driver (used when switching driver and as fallback for invalid port). */
 const DEFAULT_PORTS: Record<DbDriver, number> = {
   mssql: 1433,
   postgres: 5432,
   mysql: 3306,
 };
 
+/** Display label per driver for the selector buttons. */
+const DRIVER_LABELS: Record<DbDriver, string> = {
+  mssql: "SQL Server",
+  postgres: "PostgreSQL",
+  mysql: "MySQL",
+};
+
+/** Form state shape (all fields controlled). */
+type ConnectionFormState = {
+  label: string;
+  driver: DbDriver;
+  host: string;
+  port: string;
+  database: string;
+  username: string;
+  password: string;
+  useSsl: boolean;
+};
+
+const INITIAL_FORM: ConnectionFormState = {
+  label: "",
+  driver: "postgres",
+  host: "localhost",
+  port: "5432",
+  database: "",
+  username: "",
+  password: "",
+  useSsl: false,
+};
+
+/**
+ * Form for adding a new database connection: driver, host, port, database, username, password, SSL.
+ * On submit, builds DbConnectionConfig (with random id), uses default port if port is invalid, and calls onAdd.
+ */
 export function ConnectionForm({ onAdd }: ConnectionFormProps) {
-  const [form, setForm] = useState<{
-    label: string;
-    driver: DbDriver;
-    host: string;
-    port: string;
-    database: string;
-    username: string;
-    password: string;
-    useSsl: boolean;
-  }>({
-    label: "",
-    driver: "postgres",
-    host: "localhost",
-    port: "5432",
-    database: "",
-    username: "",
-    password: "",
-    useSsl: false,
-  });
+  const [form, setForm] = useState<ConnectionFormState>(INITIAL_FORM);
 
-  const handleDriverChange = (driver: DbDriver) => {
+  const handleDriverChange = useCallback((driver: DbDriver) => {
     setForm((f) => ({ ...f, driver, port: String(DEFAULT_PORTS[driver]) }));
-  };
+  }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onAdd({
-      id: randomId(),
-      label: form.label || `${form.driver}@${form.host}/${form.database}`,
-      driver: form.driver,
-      host: form.host,
-      port: parseInt(form.port, 10),
-      database: form.database,
-      username: form.username,
-      password: form.password,
-      useSsl: form.useSsl,
-    });
-  };
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      const port = parseInt(form.port, 10);
+      onAdd({
+        id: randomId(),
+        label: form.label || `${form.driver}@${form.host}/${form.database}`,
+        driver: form.driver,
+        host: form.host,
+        port: Number.isFinite(port) ? port : DEFAULT_PORTS[form.driver],
+        database: form.database,
+        username: form.username,
+        password: form.password,
+        useSsl: form.useSsl,
+      });
+    },
+    [form, onAdd]
+  );
 
   return (
     <div className="max-w-lg space-y-4">
@@ -69,7 +92,7 @@ export function ConnectionForm({ onAdd }: ConnectionFormProps) {
                   : "border-vscode-input-border hover:bg-vscode-list-hoverBackground"
               }`}
             >
-              {d === "mssql" ? "SQL Server" : d === "postgres" ? "PostgreSQL" : "MySQL"}
+              {DRIVER_LABELS[d]}
             </button>
           ))}
         </div>
@@ -122,6 +145,7 @@ export function ConnectionForm({ onAdd }: ConnectionFormProps) {
   );
 }
 
+/** Wraps a form field with a label. */
 interface FieldProps {
   label: string;
   children: React.ReactNode;
@@ -129,13 +153,14 @@ interface FieldProps {
 
 function Field({ label, children }: FieldProps) {
   return (
-  <div className="space-y-0.5">
-    <label className="text-xs opacity-70">{label}</label>
-    {children}
-  </div>
+    <div className="space-y-0.5">
+      <label className="text-xs opacity-70">{label}</label>
+      {children}
+    </div>
   );
 }
 
+/** Controlled text/password input with VS Code-themed styling. */
 interface InputProps {
   value: string;
   onChange: (v: string) => void;
@@ -146,13 +171,13 @@ interface InputProps {
 
 function Input({ value, onChange, placeholder, type = "text", required }: InputProps) {
   return (
-  <input
-    type={type}
-    value={value}
-    onChange={(e) => onChange(e.target.value)}
-    placeholder={placeholder}
-    required={required}
-    className="w-full px-2 py-1 rounded border border-vscode-input-border bg-vscode-input-background text-vscode-input-foreground text-sm focus:outline-none focus:ring-1 focus:ring-vscode-focusBorder"
-  />
+    <input
+      type={type}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      required={required}
+      className="w-full px-2 py-1 rounded border border-vscode-input-border bg-vscode-input-background text-vscode-input-foreground text-sm focus:outline-none focus:ring-1 focus:ring-vscode-focusBorder"
+    />
   );
 }

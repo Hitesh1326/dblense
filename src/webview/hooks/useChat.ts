@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { ChatMessage, ChatThinking } from "../../shared/types";
 import { postMessage, onMessage } from "../vscodeApi";
 
+/** Return type of useChat: message list, streaming/thinking state, and actions. */
 interface UseChatReturn {
   messages: ChatMessage[];
   isStreaming: boolean;
@@ -11,6 +12,14 @@ interface UseChatReturn {
   clearHistory: () => void;
 }
 
+/**
+ * Chat state and actions for the current connection. Subscribes to extension messages
+ * (CHAT_THINKING, CHAT_CHUNK, CHAT_DONE, CHAT_ERROR) and updates messages/streaming/thinking.
+ * sendMessage posts CHAT with connectionId, message, and history; clearHistory resets messages and buffer.
+ *
+ * @param connectionId Active connection id (send is no-op when null).
+ * @returns Messages, streaming flags, thinking payload, showThinkingBlock, sendMessage, and clearHistory.
+ */
 export function useChat(connectionId: string | null): UseChatReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);

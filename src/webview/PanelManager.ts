@@ -12,6 +12,7 @@ import { Indexer } from "../vectorstore/Indexer";
 import { MessageRouter } from "./MessageRouter";
 import { WebviewToExtensionMessage } from "../shared/types";
 
+/** Injected services used by MessageRouter to handle webview messages. */
 interface Services {
   connectionManager: ConnectionManager;
   schemaService: SchemaService;
@@ -23,13 +24,18 @@ interface Services {
 }
 
 /**
- * Owns the VS Code WebviewPanel lifecycle.
- * Delegates all message handling to MessageRouter.
+ * Owns the VS Code WebviewPanel lifecycle (command panel and sidebar webview). Builds HTML with
+ * script/style URIs and CSP nonce; delegates all incoming messages to MessageRouter and posts
+ * responses back to the webview.
  */
 export class PanelManager {
   private panel: vscode.WebviewPanel | undefined;
   private readonly messageRouter: MessageRouter;
 
+  /**
+   * @param context - Extension context (extensionUri, subscriptions).
+   * @param services - Injected services for MessageRouter.
+   */
   constructor(
     private readonly context: vscode.ExtensionContext,
     services: Services
@@ -37,6 +43,7 @@ export class PanelManager {
     this.messageRouter = new MessageRouter(services);
   }
 
+  /** Opens the main SchemaSight panel or reveals it if already open. */
   openOrReveal(): void {
     if (this.panel) {
       this.panel.reveal(vscode.ViewColumn.One);
@@ -78,10 +85,18 @@ export class PanelManager {
     );
   }
 
+  /**
+   * Sends a message to the main panel webview (no-op if panel is not open).
+   * @param message - Message to post to the webview.
+   */
   postMessage(message: unknown): void {
     this.panel?.webview.postMessage(message);
   }
 
+  /**
+   * Returns a WebviewViewProvider that renders the same app in the sidebar.
+   * @returns Provider for the sidebar webview view.
+   */
   getSidebarViewProvider(): vscode.WebviewViewProvider {
     return {
       resolveWebviewView: (webviewView: vscode.WebviewView) => {
@@ -107,6 +122,11 @@ export class PanelManager {
     };
   }
 
+  /**
+   * Loads dist/webview/index.html and substitutes script/style URIs, nonce, and CSP source.
+   * @param webview - Webview instance (for asWebviewUri and cspSource).
+   * @returns Full HTML string with placeholders replaced.
+   */
   private buildHtml(webview: vscode.Webview): string {
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.context.extensionUri, "dist", "webview", "index.js")
@@ -133,6 +153,10 @@ export class PanelManager {
   }
 }
 
+/**
+ * CSP nonce for script/style tags (crypto-random, base64url).
+ * @returns 32 random bytes as base64url string.
+ */
 function getNonce(): string {
   return crypto.randomBytes(32).toString("base64url");
 }

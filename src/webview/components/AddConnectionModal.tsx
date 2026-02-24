@@ -1,14 +1,23 @@
-import React, { useEffect } from "react";
+import React, { useCallback, useEffect } from "react";
 import { X } from "lucide-react";
 import { ConnectionForm } from "./ConnectionForm";
 import { DbConnectionConfig } from "../../shared/types";
 
+/** Props for the add-connection modal. */
 interface AddConnectionModalProps {
+  /** When true, the modal is visible. */
   isOpen: boolean;
+  /** Called when the user closes the modal (Escape, backdrop click, or close button). */
   onClose: () => void;
+  /** Called when the user submits the form with valid connection config and password. */
   onAdd: (config: DbConnectionConfig & { password: string }) => void;
 }
 
+/**
+ * Modal for adding a new database connection. Renders a dialog with ConnectionForm;
+ * supports Escape to close and clicking the backdrop to close. On successful add,
+ * calls onAdd with the config and password then closes.
+ */
 export function AddConnectionModal({ isOpen, onClose, onAdd }: AddConnectionModalProps) {
   useEffect(() => {
     if (!isOpen) return;
@@ -19,12 +28,15 @@ export function AddConnectionModal({ isOpen, onClose, onAdd }: AddConnectionModa
     return () => document.removeEventListener("keydown", handleEscape);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  const handleAdd = useCallback(
+    (config: DbConnectionConfig & { password: string }) => {
+      onAdd(config);
+      onClose();
+    },
+    [onAdd, onClose]
+  );
 
-  const handleAdd = (config: DbConnectionConfig & { password: string }) => {
-    onAdd(config);
-    onClose();
-  };
+  if (!isOpen) return null;
 
   return (
     <div

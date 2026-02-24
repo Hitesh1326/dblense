@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Plus, MoreVertical } from "lucide-react";
 import { DbConnectionConfig, CrawlProgress } from "../../shared/types";
 
+/** Props for the connections sidebar (list, selection, crawl state, and actions). */
 interface SidebarProps {
   connections: DbConnectionConfig[];
   crawledConnectionIds: string[];
@@ -15,6 +16,11 @@ interface SidebarProps {
   onIndexInfo?: (connectionId: string) => void;
 }
 
+/**
+ * Connections sidebar: list of connections with avatar, active state, and per-item ⋮ menu
+ * (Test, Re-index/Crawl schema, Index info, Remove). Click-outside closes the open menu.
+ * Add Connection button at the bottom.
+ */
 export function Sidebar({
   connections,
   crawledConnectionIds,
@@ -175,10 +181,8 @@ export function Sidebar({
 }
 
 /**
- * Driver avatar with an overlaid status badge on the bottom-right corner:
- * - Green dot  = indexed (ready for chat)
- * - Pulsing amber dot = crawling / indexing in progress
- * - No badge = not yet indexed
+ * Driver avatar (MS / PG / MY) with an overlaid status badge on the bottom-right:
+ * green dot = indexed, pulsing amber = crawling, no badge = not yet indexed.
  */
 function DbAvatarWithStatus({
   driver,
@@ -214,6 +218,7 @@ function DbAvatarWithStatus({
   );
 }
 
+/** Returns label and Tailwind classes for the driver avatar (MS/PG/MY + colors). */
 function driverStyle(driver: DbConnectionConfig["driver"]): { label: string; bg: string; fg: string } {
   switch (driver) {
     case "mssql":

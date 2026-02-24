@@ -1,5 +1,12 @@
 import type { CrawlProgress } from "../../shared/types";
 
+/**
+ * Human-readable label for the current crawl phase (e.g. "Tables 3/10 — dbo.Users", "Embedding…").
+ * Uses progress.phase, progress.current/total, and progress.currentObject where applicable.
+ *
+ * @param progress - Current crawl progress from the extension.
+ * @returns Short phase string for UI (progress indicators, banners).
+ */
 export function formatCrawlPhase(progress: CrawlProgress): string {
   if (progress.phase === "connecting") return "Connecting…";
   if (progress.phase === "crawling_tables") {

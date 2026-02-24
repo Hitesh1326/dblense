@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { TabBar, MainView } from "./components/TabBar";
 import { ChatPanel } from "./components/ChatPanel";
@@ -9,6 +9,12 @@ import { useConnections } from "./hooks/useConnections";
 import { useChat } from "./hooks/useChat";
 import { useOllamaStatus } from "./hooks/useOllamaStatus";
 
+/**
+ * Root webview UI: sidebar (connections, crawl, index info), main area with TabBar (chat / schema),
+ * and modals for adding a connection and viewing index stats. Clears active connection when it
+ * is removed from the list; passes crawl/Ollama state and handlers into Sidebar, ChatPanel, and SchemaGraph.
+ * @returns Root layout JSX (sidebar, main, modals).
+ */
 export function App() {
   const [activeView, setActiveView] = useState<MainView>("chat");
   const [activeConnectionId, setActiveConnectionId] = useState<string | null>(null);
@@ -36,6 +42,13 @@ export function App() {
   const isActiveCrawled = activeConnectionId !== null && crawledConnectionIds.includes(activeConnectionId);
   const isActiveCrawling = crawlProgress !== null && crawlProgress.connectionId === activeConnectionId;
   const cancelActiveCrawl = () => activeConnectionId && cancelCrawl(activeConnectionId);
+
+  const activeConnection = useMemo(
+    () => (activeConnectionId ? connections.find((c) => c.id === activeConnectionId) : null),
+    [activeConnectionId, connections]
+  );
+  const activeConnectionName =
+    activeConnection?.label?.trim() || activeConnection?.database || "this database";
 
   useEffect(() => {
     if (activeConnectionId && !connections.some((c) => c.id === activeConnectionId)) {
@@ -84,7 +97,7 @@ export function App() {
                 onSend={sendMessage}
                 onClear={clearHistory}
                 connectionId={activeConnectionId}
-                connectionName={connections.find((c) => c.id === activeConnectionId)?.label?.trim() || connections.find((c) => c.id === activeConnectionId)?.database || "this database"}
+                connectionName={activeConnectionName}
                 isCrawled={isActiveCrawled}
                 onCrawl={() => activeConnectionId && crawlSchema(activeConnectionId)}
                 onCancelCrawl={cancelActiveCrawl}
@@ -99,7 +112,7 @@ export function App() {
             {activeView === "schema" && (
               <SchemaGraph
                 connectionId={activeConnectionId}
-                connectionName={connections.find((c) => c.id === activeConnectionId)?.label?.trim() || connections.find((c) => c.id === activeConnectionId)?.database || "this database"}
+                connectionName={activeConnectionName}
                 isCrawled={isActiveCrawled}
                 onCrawl={() => activeConnectionId && crawlSchema(activeConnectionId)}
                 onCancelCrawl={cancelActiveCrawl}
@@ -125,9 +138,7 @@ export function App() {
         isOpen={indexInfoConnectionId !== null}
         connectionId={indexInfoConnectionId ?? ""}
         connectionName={
-          connections.find((c) => c.id === indexInfoConnectionId)?.database ??
-          indexInfoConnectionId ??
-          ""
+          connections.find((c) => c.id === indexInfoConnectionId)?.database ?? indexInfoConnectionId ?? ""
         }
         stats={indexStats}
         loading={indexStatsLoading}
