@@ -255,6 +255,7 @@ export class MessageRouter {
    * @param post - Callback to send messages to the webview.
    */
   private async handleChat(payload: ChatPayload, post: PostMessage): Promise<void> {
+    const chatStartMs = Date.now();
     const { connectionId, message: userMessage, history } = payload;
     const config = await this.services.connectionManager.getById(connectionId);
     if (!config) {
@@ -284,6 +285,12 @@ export class MessageRouter {
         userMessage,
         (token) => post({ type: "CHAT_CHUNK", payload: { token } })
       );
+      const totalElapsedMs = Date.now() - chatStartMs;
+      postThinking({
+        step: "generating",
+        model: this.services.ollamaService.getModelName(),
+        context: { ...contextPayload, totalElapsedMs },
+      });
       post({ type: "CHAT_DONE" });
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);

@@ -166,6 +166,7 @@ export interface ChatThinkingContext {
   objectNames: string[];
   searchMs?: number;
   contextTokens?: number;
+  totalElapsedMs?: number;
 }
 
 /** Progress payload for CHAT_THINKING: current step and optional context/model info. */

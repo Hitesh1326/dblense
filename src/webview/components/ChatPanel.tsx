@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback, KeyboardEvent } from "react";
-import { Database, Trash2, Sparkles, Check, Loader2 } from "lucide-react";
+import { Database, Trash2, Sparkles, Check, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { ChatMessage, CrawlProgress, ChatThinking, ChatThinkingStep } from "../../shared/types";
 import { IndexFirstCard } from "./IndexFirstCard";
 import { ReindexingBanner } from "./ReindexingBanner";
@@ -37,6 +37,8 @@ interface ChatPanelProps {
   isStreaming: boolean;
   thinking: ChatThinking | null;
   showThinkingBlock: boolean;
+  lastCompletedThinking: ChatThinking | null;
+  streamedChunkCount: number;
   onSend: (text: string) => void;
   onClear: () => void;
   connectionId: string | null;
@@ -62,6 +64,8 @@ export function ChatPanel({
   isStreaming,
   thinking,
   showThinkingBlock,
+  lastCompletedThinking,
+  streamedChunkCount,
   onSend,
   onClear,
   connectionId,
@@ -139,7 +143,11 @@ export function ChatPanel({
         ))}
 
         {isStreaming && thinking && showThinkingBlock && (
-          <ThinkingBlock thinking={thinking} />
+          <ThinkingBlock thinking={thinking} streamedChunkCount={streamedChunkCount} />
+        )}
+
+        {!isStreaming && lastCompletedThinking && (
+          <CollapsedThinkingBlock thinking={lastCompletedThinking} />
         )}
 
         {isStreaming && !showThinkingBlock && (
@@ -192,30 +200,51 @@ export function ChatPanel({
 }
 
 /**
- * Renders the thinking progress: ordered steps (embedding → searching → context → generating)
- * with checkmarks for done, spinner for current, and optional context summary (chunks used, types, timing).
+ * Renders the thinking progress: ordered steps with per-step details. Searching shows only
+ * chunk count and time; context shows one-line summary plus expandable object list; generating
+ * shows token count when available.
  */
-function ThinkingBlock({ thinking }: { thinking: ChatThinking }) {
+function ThinkingBlock({
+  thinking,
+  streamedChunkCount = 0,
+}: {
+  thinking: ChatThinking;
+  streamedChunkCount?: number;
+}) {
+  const [objectsExpanded, setObjectsExpanded] = useState(false);
   const currentIndex = STEPS_ORDER.indexOf(thinking.step);
   const ctx = thinking.context;
-  const breakdown =
+  const typeBreakdown =
     ctx && Object.keys(ctx.byType).length > 0
       ? Object.entries(ctx.byType)
           .map(([type, n]) => formatTypeCount(type, n))
           .join(", ")
       : null;
-  const contextSummary =
-    ctx &&
-    [
-      `${ctx.chunksUsed} objects`,
-      breakdown || null,
-      ctx.searchMs != null ? `${(ctx.searchMs / 1000).toFixed(2)}s` : null,
-      ctx.contextTokens != null ? `~${(ctx.contextTokens / 1000).toFixed(1)}k tokens` : null,
-    ]
-      .filter(Boolean)
-      .join(" \u00B7 ");
-  const includingTooltip =
-    ctx && ctx.objectNames.length > 0 ? ctx.objectNames.join(", ") : undefined;
+
+  /** One-line detail for each step (no object list; that's separate for context). */
+  const stepDetail = (step: ChatThinkingStep): string | null => {
+    switch (step) {
+      case "embedding":
+        return "Encoded your question for semantic search.";
+      case "searching":
+        if (!ctx) return null;
+        const time = ctx.searchMs != null ? ` in ${(ctx.searchMs / 1000).toFixed(2)}s` : "";
+        return `Found ${ctx.chunksUsed} chunks${time}.`;
+      case "context":
+        if (!ctx) return null;
+        const typeList = typeBreakdown ? ` (${typeBreakdown})` : "";
+        const tokens = ctx.contextTokens != null ? ` ~${(ctx.contextTokens / 1000).toFixed(1)}k tokens sent to the model.` : ".";
+        return `Included ${ctx.chunksUsed} objects${typeList}.${tokens}`;
+      case "generating":
+        if (!thinking.model) return null;
+        if (streamedChunkCount > 0) {
+          return `Streaming response from ${thinking.model}. … ${streamedChunkCount} tokens so far.`;
+        }
+        return `Streaming response from ${thinking.model}.`;
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="flex justify-start mb-2" role="status" aria-live="polite" aria-label="Assistant is thinking">
@@ -225,10 +254,13 @@ function ThinkingBlock({ thinking }: { thinking: ChatThinking }) {
           <span className="text-[11px] text-vscode-descriptionForeground/90 tracking-wide uppercase">Thinking</span>
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-2">
           {STEPS_ORDER.map((step, i) => {
             const isDone = i < currentIndex;
             const isCurrent = i === currentIndex;
+            const showDetail = (isDone || isCurrent) && stepDetail(step);
+            const showObjectList =
+              step === "context" && ctx && ctx.objectNames.length > 0 && (isDone || isCurrent);
             const label =
               step === "generating" && thinking.model
                 ? `${STEP_LABELS[step]} with ${thinking.model}`
@@ -236,40 +268,150 @@ function ThinkingBlock({ thinking }: { thinking: ChatThinking }) {
             return (
               <div
                 key={step}
-                className={`flex items-center gap-2 min-h-[20px] rounded px-1.5 -mx-1.5 transition-colors ${
+                className={`rounded px-1.5 -mx-1.5 transition-colors ${
                   isCurrent ? "bg-vscode-list-activeSelectionBackground/20" : ""
-                } ${isCurrent ? "border-l-2 border-vscode-focusBorder pl-2" : "border-l-2 border-transparent pl-2"}`}
+                }`}
               >
-                <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-vscode-descriptionForeground/90">
-                  {isDone && <Check size={12} strokeWidth={2.5} aria-hidden />}
-                  {isCurrent && (
-                    <Loader2 size={12} className="animate-spin text-vscode-foreground/80" aria-label="Loading" />
-                  )}
-                  {!isDone && !isCurrent && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-vscode-descriptionForeground/40" aria-hidden />
-                  )}
-                </span>
-                <span
-                  className={`text-[11px] ${isCurrent ? "text-vscode-foreground" : "text-vscode-descriptionForeground/90"}`}
-                >
-                  {label}{isCurrent ? "…" : ""}
-                </span>
+                <div className="flex items-center gap-2 min-h-[20px]">
+                  <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 text-vscode-descriptionForeground/90">
+                    {isDone && <Check size={12} strokeWidth={2.5} aria-hidden />}
+                    {isCurrent && (
+                      <Loader2 size={12} className="animate-spin text-vscode-foreground/80" aria-label="Loading" />
+                    )}
+                    {!isDone && !isCurrent && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-vscode-descriptionForeground/40" aria-hidden />
+                    )}
+                  </span>
+                  <span
+                    className={`text-[11px] ${isCurrent ? "text-vscode-foreground" : "text-vscode-descriptionForeground/90"}`}
+                  >
+                    {label}{isCurrent ? "…" : ""}
+                  </span>
+                </div>
+                {showDetail && (
+                  <p className="ml-5 mt-0.5 text-[10px] text-vscode-descriptionForeground/70 leading-relaxed">
+                    {stepDetail(step)}
+                  </p>
+                )}
+                {showObjectList && (
+                  <div className="ml-5 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => setObjectsExpanded((e) => !e)}
+                      className="flex items-center gap-1 text-[10px] text-vscode-descriptionForeground/60 hover:text-vscode-descriptionForeground/90 focus:outline-none focus:underline"
+                      aria-expanded={objectsExpanded}
+                    >
+                      {objectsExpanded ? (
+                        <ChevronDown size={10} aria-hidden />
+                      ) : (
+                        <ChevronRight size={10} aria-hidden />
+                      )}
+                      Objects ({ctx!.objectNames.length})
+                    </button>
+                    {objectsExpanded && (
+                      <p className="mt-1 text-[10px] text-vscode-descriptionForeground/50 leading-relaxed break-words">
+                        {ctx!.objectNames.join(", ")}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
+      </div>
+    </div>
+  );
+}
 
-        {ctx && contextSummary && (
-          <p
-            className="mt-2 text-[10px] text-vscode-descriptionForeground/70 leading-relaxed cursor-help"
-            title={includingTooltip ? `Including: ${includingTooltip}` : undefined}
-          >
-            {contextSummary}
-          </p>
+/**
+ * Collapsed summary of how the last reply was generated, shown after the message is complete. Expand to see full steps.
+ */
+function CollapsedThinkingBlock({ thinking }: { thinking: ChatThinking }) {
+  const [expanded, setExpanded] = useState(false);
+  const ctx = thinking.context;
+  const thoughtLabel =
+    ctx && ctx.totalElapsedMs != null
+      ? `Thought for ${(ctx.totalElapsedMs / 1000).toFixed(1)}s`
+      : ctx && ctx.searchMs != null
+        ? `Thought for ${(ctx.searchMs / 1000).toFixed(1)}s`
+        : "Thought";
+
+  return (
+    <div className="flex justify-start mb-2">
+      <div className="max-w-[85%] rounded-xl py-2 px-3 bg-vscode-editor-inactiveSelectionBackground/20">
+        <button
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
+          className="flex items-center gap-2 w-full text-left focus:outline-none focus:ring-1 focus:ring-vscode-focusBorder rounded"
+          aria-expanded={expanded}
+        >
+          {expanded ? (
+            <ChevronDown size={12} className="text-vscode-descriptionForeground/80 shrink-0" aria-hidden />
+          ) : (
+            <ChevronRight size={12} className="text-vscode-descriptionForeground/80 shrink-0" aria-hidden />
+          )}
+          <Sparkles size={12} className="text-vscode-descriptionForeground/80 shrink-0" aria-hidden />
+          <span className="text-[11px] text-vscode-descriptionForeground/90">{thoughtLabel}</span>
+        </button>
+        {expanded && (
+          <div className="mt-2 pl-4 border-l-2 border-vscode-descriptionForeground/20 space-y-2">
+            {STEPS_ORDER.map((step) => {
+              const label =
+                step === "generating" && thinking.model
+                  ? `${STEP_LABELS[step]} with ${thinking.model}`
+                  : STEP_LABELS[step];
+              const detail = getCompletedStepDetail(step, thinking);
+              return (
+                <div key={step} className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-2">
+                    <Check size={12} className="shrink-0 text-vscode-descriptionForeground/90" aria-hidden />
+                    <span className="text-[11px] text-vscode-descriptionForeground/90">{label}</span>
+                  </div>
+                  {detail && (
+                    <p className="ml-5 text-[10px] text-vscode-descriptionForeground/60 leading-relaxed">{detail}</p>
+                  )}
+                  {step === "context" && ctx && ctx.objectNames.length > 0 && (
+                    <p className="ml-5 text-[10px] text-vscode-descriptionForeground/50 leading-relaxed break-words">
+                      {ctx.objectNames.join(", ")}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
     </div>
   );
+}
+
+/** Detail line for a completed step (used in collapsed block when expanded). */
+function getCompletedStepDetail(step: ChatThinkingStep, thinking: ChatThinking): string | null {
+  const ctx = thinking.context;
+  const typeBreakdown =
+    ctx && Object.keys(ctx.byType).length > 0
+      ? Object.entries(ctx.byType)
+          .map(([type, n]) => formatTypeCount(type, n))
+          .join(", ")
+      : null;
+  switch (step) {
+    case "embedding":
+      return "Encoded your question for semantic search.";
+    case "searching":
+      if (!ctx) return null;
+      const time = ctx.searchMs != null ? ` in ${(ctx.searchMs / 1000).toFixed(2)}s` : "";
+      return `Found ${ctx.chunksUsed} chunks${time}.`;
+    case "context":
+      if (!ctx) return null;
+      const typeList = typeBreakdown ? ` (${typeBreakdown})` : "";
+      const tokens = ctx.contextTokens != null ? ` ~${(ctx.contextTokens / 1000).toFixed(1)}k tokens sent to the model.` : ".";
+      return `Included ${ctx.chunksUsed} objects${typeList}.${tokens}`;
+    case "generating":
+      return thinking.model ? `Streaming response from ${thinking.model}.` : null;
+    default:
+      return null;
+  }
 }
 
 /** Single message bubble (user right-aligned, assistant left-aligned). */

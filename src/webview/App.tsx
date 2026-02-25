@@ -35,7 +35,16 @@ export function App() {
     indexStatsLoading,
     clearIndexInfo,
   } = useConnections();
-  const { messages, sendMessage, isStreaming, thinking, showThinkingBlock, clearHistory } = useChat(activeConnectionId);
+  const {
+    messages,
+    sendMessage,
+    isStreaming,
+    thinking,
+    showThinkingBlock,
+    lastCompletedThinking,
+    streamedChunkCount,
+    clearHistory,
+  } = useChat(activeConnectionId);
   const { available: ollamaAvailable, model: ollamaModel, modelPulled: ollamaModelPulled, check: checkOllama } =
     useOllamaStatus();
 
@@ -94,6 +103,8 @@ export function App() {
                 isStreaming={isStreaming}
                 thinking={thinking}
                 showThinkingBlock={showThinkingBlock}
+                lastCompletedThinking={lastCompletedThinking}
+                streamedChunkCount={streamedChunkCount}
                 onSend={sendMessage}
                 onClear={clearHistory}
                 connectionId={activeConnectionId}

@@ -8,6 +8,8 @@ interface UseChatReturn {
   isStreaming: boolean;
   thinking: ChatThinking | null;
   showThinkingBlock: boolean;
+  lastCompletedThinking: ChatThinking | null;
+  streamedChunkCount: number;
   sendMessage: (text: string) => void;
   clearHistory: () => void;
 }
@@ -25,16 +27,21 @@ export function useChat(connectionId: string | null): UseChatReturn {
   const [isStreaming, setIsStreaming] = useState(false);
   const [thinking, setThinking] = useState<ChatThinking | null>(null);
   const [showThinkingBlock, setShowThinkingBlock] = useState(false);
+  const [lastCompletedThinking, setLastCompletedThinking] = useState<ChatThinking | null>(null);
+  const [streamedChunkCount, setStreamedChunkCount] = useState(0);
   const streamBufferRef = useRef("");
+  const thinkingRef = useRef<ChatThinking | null>(null);
 
   useEffect(() => {
     const unsubscribe = onMessage((message) => {
       switch (message.type) {
         case "CHAT_THINKING":
+          thinkingRef.current = message.payload;
           setThinking(message.payload);
           break;
         case "CHAT_CHUNK":
           setShowThinkingBlock(false);
+          setStreamedChunkCount((n) => n + 1);
           streamBufferRef.current += message.payload.token;
           setMessages((prev) => {
             const last = prev[prev.length - 1];
@@ -55,15 +62,21 @@ export function useChat(connectionId: string | null): UseChatReturn {
           });
           break;
         case "CHAT_DONE":
+          setLastCompletedThinking(thinkingRef.current ?? null);
+          thinkingRef.current = null;
           setIsStreaming(false);
           setShowThinkingBlock(false);
           setThinking(null);
+          setStreamedChunkCount(0);
           streamBufferRef.current = "";
           break;
         case "CHAT_ERROR":
+          thinkingRef.current = null;
+          setLastCompletedThinking(null);
           setIsStreaming(false);
           setShowThinkingBlock(false);
           setThinking(null);
+          setStreamedChunkCount(0);
           streamBufferRef.current = "";
           setMessages((prev) => [
             ...prev,
@@ -93,6 +106,9 @@ export function useChat(connectionId: string | null): UseChatReturn {
       setMessages((prev) => [...prev, userMessage]);
       setIsStreaming(true);
       setShowThinkingBlock(true);
+      setLastCompletedThinking(null);
+      setStreamedChunkCount(0);
+      thinkingRef.current = null;
 
       postMessage({
         type: "CHAT",
@@ -108,8 +124,18 @@ export function useChat(connectionId: string | null): UseChatReturn {
 
   const clearHistory = useCallback(() => {
     setMessages([]);
+    setLastCompletedThinking(null);
     streamBufferRef.current = "";
   }, []);
 
-  return { messages, isStreaming, thinking, showThinkingBlock, sendMessage, clearHistory };
+  return {
+    messages,
+    isStreaming,
+    thinking,
+    showThinkingBlock,
+    lastCompletedThinking,
+    streamedChunkCount,
+    sendMessage,
+    clearHistory,
+  };
 }
