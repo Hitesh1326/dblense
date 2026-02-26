@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import type { ChatMessage } from "../shared/types";
+import { logger } from "../utils/logger";
 
 type StreamCallback = (token: string) => void;
 
@@ -13,6 +14,12 @@ const QUERY_REWRITE_SYSTEM = `You are a query rewriter for a database schema sea
 /** Response shape from GET /api/tags. */
 interface OllamaTagsResponse {
   models?: { name?: string }[];
+}
+
+/** Response shape from POST /api/show (model details). */
+interface OllamaShowResponse {
+  parameters?: string;
+  model_info?: Record<string, number>;
 }
 
 /**
@@ -134,6 +141,47 @@ export class OllamaService {
     } finally {
       reader.releaseLock();
     }
+  }
+
+  /**
+   * Returns the model's context length (tokens) from Ollama POST /api/show.
+   * Parses `parameters` for "num_ctx N" or `model_info` for "*context_length".
+   * @returns Context length in tokens, or a safe default (8192) if unavailable.
+   */
+  async getContextLength(): Promise<number> {
+    const DEFAULT_CTX = 8192;
+    try {
+      const res = await fetch(`${this.baseUrl}/api/show`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: this.model }),
+      });
+      if (!res.ok) {
+        logger.info(`Context limit: ${DEFAULT_CTX} (fallback: Ollama /api/show returned ${res.status})`);
+        return DEFAULT_CTX;
+      }
+      const data = (await res.json()) as OllamaShowResponse;
+      if (data.parameters) {
+        const match = data.parameters.match(/\bnum_ctx\s+(\d+)/i);
+        if (match) {
+          const n = Math.max(1, parseInt(match[1], 10));
+          logger.info(`Context limit: ${n} (from Ollama parameters num_ctx)`);
+          return n;
+        }
+      }
+      if (data.model_info && typeof data.model_info === "object") {
+        for (const [key, value] of Object.entries(data.model_info)) {
+          if (key.endsWith("context_length") && typeof value === "number" && value > 0) {
+            logger.info(`Context limit: ${value} (from Ollama model_info.${key})`);
+            return value;
+          }
+        }
+      }
+      logger.info(`Context limit: ${DEFAULT_CTX} (fallback: no num_ctx or context_length in /api/show)`);
+    } catch (e) {
+      logger.info(`Context limit: ${DEFAULT_CTX} (fallback: Ollama unavailable — ${e instanceof Error ? e.message : "unknown error"})`);
+    }
+    return DEFAULT_CTX;
   }
 
   /**

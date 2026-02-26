@@ -45,3 +45,73 @@ body {
 .thinking-pulse {
   animation: thinking-pulse 1.25s ease-in-out infinite;
 }
+
+.chat-markdown {
+  line-height: 1.5;
+}
+.chat-markdown p {
+  margin: 0 0 0.5em;
+}
+.chat-markdown p:last-child {
+  margin-bottom: 0;
+}
+.chat-markdown ul,
+.chat-markdown ol {
+  margin: 0.25em 0;
+  padding-left: 1.25em;
+}
+.chat-markdown li {
+  margin: 0.15em 0;
+}
+.chat-markdown strong {
+  font-weight: 600;
+}
+.chat-markdown h1,
+.chat-markdown h2,
+.chat-markdown h3 {
+  font-size: 1em;
+  font-weight: 600;
+  margin: 0.5em 0 0.25em;
+}
+.chat-markdown h1 { font-size: 1.1em; }
+.chat-markdown h2 { font-size: 1.05em; }
+.chat-markdown pre {
+  margin: 0.5em 0;
+  padding: 0.75em 0.75em;
+  border-radius: 6px;
+  overflow-x: auto;
+  background: var(--vscode-textBlockQuote-background);
+  border: 1px solid var(--vscode-input-border);
+}
+.chat-markdown pre code {
+  font-size: 0.9em;
+  padding: 0;
+  background: none;
+  border-radius: 0;
+}
+.chat-markdown code {
+  font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
+  font-size: 0.9em;
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+  background: var(--vscode-textCodeBlock-background);
+}
+.chat-markdown blockquote {
+  margin: 0.5em 0;
+  padding-left: 0.75em;
+  border-left: 3px solid var(--vscode-input-border);
+  color: var(--vscode-descriptionForeground);
+}
+
+.chat-markdown .hljs {
+  background: transparent;
+  padding: 0;
+  color: var(--vscode-editor-foreground);
+}
+.chat-markdown .hljs-keyword,
+.chat-markdown .hljs-selector-tag { color: var(--vscode-symbolIcon-keywordForeground, #569cd6); }
+.chat-markdown .hljs-string { color: var(--vscode-symbolIcon-stringForeground, #ce9178); }
+.chat-markdown .hljs-number { color: var(--vscode-symbolIcon-numberForeground, #b5cea8); }
+.chat-markdown .hljs-comment { color: var(--vscode-symbolIcon-colorForeground, #6a9955); opacity: 0.9; }
+.chat-markdown .hljs-built_in,
+.chat-markdown .hljs-title { color: var(--vscode-symbolIcon-functionForeground, #dcdcaa); }

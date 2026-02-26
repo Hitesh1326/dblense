@@ -20,11 +20,11 @@ export function TabBar({ activeView, onChangeView }: TabBarProps) {
   const handleSchema = useCallback(() => onChangeView("schema"), [onChangeView]);
 
   return (
-    <div className="flex w-full border-b border-vscode-panel-border bg-vscode-editorGroupHeader-tabsBackground shrink-0">
+    <div className="flex w-full border-b border-vscode-panel-border bg-vscode-editorGroupHeader-tabsBackground shrink-0 pt-1">
       <button
         type="button"
         onClick={handleChat}
-        className={`px-4 py-2.5 text-sm border-b-2 border-transparent transition-colors ${
+        className={`px-4 py-3 text-sm border-b-2 border-transparent transition-colors ${
           activeView === "chat"
             ? "border-vscode-tab-activeBorder text-vscode-foreground font-semibold opacity-100 mb-[-2px]"
             : "text-vscode-foreground opacity-[0.4] font-normal hover:opacity-60"
@@ -35,7 +35,7 @@ export function TabBar({ activeView, onChangeView }: TabBarProps) {
       <button
         type="button"
         onClick={handleSchema}
-        className={`px-4 py-2.5 text-sm border-b-2 border-transparent transition-colors ${
+        className={`px-4 py-3 text-sm border-b-2 border-transparent transition-colors ${
           activeView === "schema"
             ? "border-vscode-tab-activeBorder text-vscode-foreground font-semibold opacity-100 mb-[-2px]"
             : "text-vscode-foreground opacity-[0.4] font-normal hover:opacity-60"

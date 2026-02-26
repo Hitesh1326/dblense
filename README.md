@@ -70,11 +70,13 @@ All embedding and LLM work is local; webview and extension talk via `postMessage
 
 3. **First summarization** — Summarize the **older** part of the conversation (all messages except the last N, e.g. last 10). Send to the model: **system + summary + last N full messages + current message**. The summary stays; “last N” is a sliding window of the most recent N messages.
 
-4. **Next messages** — For each new user message after that: send **system + same summary + sliding last N full messages + current message**. Do **not** drop the summary; only slide the “last N” window (oldest of the 10 drops, newest turn enters). Summary is kept so long-range references (e.g. proc name from early in the thread) remain in context.
+4. **Notify user when summarization runs** — When we switch to summary + last N, show a brief notice in the UI (e.g. banner or inline near the input) so the user knows the conversation was summarized: older messages are now in a summary, and the last N are still sent in full. This avoids confusion about reduced recall and makes it clear that context was intentionally reduced, not lost by error. If the user wants full context again, they can start a new chat (Clear).
 
-5. **If we hit ~90% again** — Do another summarization round: merge “current summary + oldest part of the last N” into a **new** summary; keep only the **newest** N full messages (e.g. last 5). Then: system + new summary + last N full + current. Repeat as needed.
+5. **Next messages** — For each new user message after that: send **system + same summary + sliding last N full messages + current message**. Do **not** drop the summary; only slide the “last N” window (oldest of the 10 drops, newest turn enters). Summary is kept so long-range references (e.g. proc name from early in the thread) remain in context.
 
-6. **No cap-only behaviour** — We do not truncate without summarizing; we either send full history (below 90%) or summary + last N full (after summarization). If even that exceeds the limit, then prompt the user to clear the conversation.
+6. **If we hit ~90% again** — Do another summarization round: merge “current summary + oldest part of the last N” into a **new** summary; keep only the **newest** N full messages (e.g. last 5). Then: system + new summary + last N full + current. Repeat as needed.
+
+7. **No cap-only behaviour** — We do not truncate without summarizing; we either send full history (below 90%) or summary + last N full (after summarization). If even that exceeds the limit, then prompt the user to clear the conversation.
 
 Once this is implemented and stable, remove this “Implementation plan” section from the README.
 

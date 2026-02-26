@@ -166,6 +166,7 @@ export interface ChatThinkingContext {
   objectNames: string[];
   searchMs?: number;
   contextTokens?: number;
+  contextLimit?: number;
   totalElapsedMs?: number;
 }
 

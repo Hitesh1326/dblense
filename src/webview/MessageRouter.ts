@@ -286,10 +286,11 @@ export class MessageRouter {
         (token) => post({ type: "CHAT_CHUNK", payload: { token } })
       );
       const totalElapsedMs = Date.now() - chatStartMs;
+      const contextLimit = await this.services.ollamaService.getContextLength();
       postThinking({
         step: "generating",
         model: this.services.ollamaService.getModelName(),
-        context: { ...contextPayload, totalElapsedMs },
+        context: { ...contextPayload, totalElapsedMs, contextLimit },
       });
       post({ type: "CHAT_DONE" });
     } catch (err) {

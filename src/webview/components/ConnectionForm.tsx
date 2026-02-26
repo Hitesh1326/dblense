@@ -134,12 +134,14 @@ export function ConnectionForm({ onAdd }: ConnectionFormProps) {
           </p>
         </div>
 
-        <button
-          type="submit"
-          className="w-full py-1.5 rounded bg-vscode-button-background text-vscode-button-foreground text-sm hover:bg-vscode-button-hoverBackground transition-colors"
-        >
-          Add Connection
-        </button>
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            className="px-4 py-1.5 rounded bg-vscode-button-background text-vscode-button-foreground text-sm hover:bg-vscode-button-hoverBackground transition-colors"
+          >
+            Add Connection
+          </button>
+        </div>
       </form>
     </div>
   );

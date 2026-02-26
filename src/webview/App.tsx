@@ -56,8 +56,13 @@ export function App() {
     () => (activeConnectionId ? connections.find((c) => c.id === activeConnectionId) : null),
     [activeConnectionId, connections]
   );
-  const activeConnectionName =
-    activeConnection?.label?.trim() || activeConnection?.database || "this database";
+  const activeConnectionName = useMemo(() => {
+    if (!activeConnection) return "this database";
+    const label = activeConnection.label?.trim() || "";
+    const technical = `${activeConnection.driver}@${activeConnection.host}/${activeConnection.database}`;
+    const full = label || technical;
+    return full === technical ? activeConnection.database : full || "this database";
+  }, [activeConnection]);
 
   useEffect(() => {
     if (activeConnectionId && !connections.some((c) => c.id === activeConnectionId)) {

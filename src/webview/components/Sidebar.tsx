@@ -18,8 +18,7 @@ interface SidebarProps {
 
 /**
  * Connections sidebar: list of connections with avatar, active state, and per-item ⋮ menu
- * (Test, Re-index/Crawl schema, Index info, Remove). Click-outside closes the open menu.
- * Add Connection button at the bottom.
+ * (Test, Re-index/Crawl schema, Index info, Remove). Add connection next to header. Click-outside closes menu.
  */
 export function Sidebar({
   connections,
@@ -49,10 +48,23 @@ export function Sidebar({
 
   return (
     <aside className="w-[220px] flex flex-col border-r border-vscode-panel-border bg-vscode-sideBar-background overflow-hidden shrink-0">
-      <div className="flex items-center px-3 pt-3 pb-2 shrink-0">
+      <div className="flex items-center justify-between gap-2 px-3 pt-3 pb-2 shrink-0">
         <span className="text-[10px] font-normal uppercase tracking-widest text-vscode-descriptionForeground opacity-90">
           Connections
         </span>
+        <button
+          type="button"
+          onClick={onAddConnection}
+          aria-label="Add connection"
+          className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium hover:opacity-90 transition-opacity"
+          style={{
+            backgroundColor: "var(--vscode-button-background)",
+            color: "var(--vscode-button-foreground)",
+          }}
+        >
+          <Plus size={14} aria-hidden />
+          Add
+        </button>
       </div>
 
       <ul className="flex-1 py-1.5 px-1.5 space-y-0.5 min-h-0 overflow-y-auto">
@@ -78,7 +90,7 @@ export function Sidebar({
                   onClick={() => onSelectConnection(conn.id)}
                   title={primaryLabel}
                 >
-                  <DbAvatarWithStatus driver={conn.driver} isIndexed={isIndexed} isCrawling={isCrawling} />
+                  <DbAvatarWithStatus driver={conn.driver} isIndexed={isIndexed} isCrawling={isCrawling} isActive={isActive} />
                   <span className="truncate font-normal text-sm" title={primaryLabel}>
                     {primaryLabel}
                   </span>
@@ -161,21 +173,6 @@ export function Sidebar({
           </li>
         )}
       </ul>
-
-      <div className="shrink-0 border-t border-vscode-panel-border/50 p-2 pt-2">
-        <button
-          type="button"
-          onClick={onAddConnection}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium hover:opacity-90 transition-opacity"
-          style={{
-            backgroundColor: "var(--vscode-button-background)",
-            color: "var(--vscode-button-foreground)",
-          }}
-        >
-          <Plus size={18} aria-hidden />
-          Add Connection
-        </button>
-      </div>
     </aside>
   );
 }
@@ -188,16 +185,18 @@ function DbAvatarWithStatus({
   driver,
   isIndexed,
   isCrawling,
+  isActive,
 }: {
   driver: DbConnectionConfig["driver"];
   isIndexed: boolean;
   isCrawling: boolean;
+  isActive?: boolean;
 }) {
-  const { label, bg, fg } = driverStyle(driver);
+  const { label, bg, fg, bgActive } = driverStyle(driver);
   return (
     <span className="relative shrink-0 inline-flex" aria-hidden>
       <span
-        className={`inline-flex items-center justify-center w-7 h-7 rounded-md text-[10px] font-semibold ${bg} ${fg}`}
+        className={`inline-flex items-center justify-center w-7 h-7 rounded-md text-[10px] font-semibold ${isActive ? bgActive : bg} ${fg}`}
         title={driver}
       >
         {label}
@@ -218,16 +217,15 @@ function DbAvatarWithStatus({
   );
 }
 
-/** Returns label and Tailwind classes for the driver avatar (MS/PG/MY + colors). */
-function driverStyle(driver: DbConnectionConfig["driver"]): { label: string; bg: string; fg: string } {
+function driverStyle(driver: DbConnectionConfig["driver"]): { label: string; bg: string; fg: string; bgActive: string } {
   switch (driver) {
     case "mssql":
-      return { label: "MS", bg: "bg-[#0078d4]/15", fg: "text-[#0078d4]" };
+      return { label: "MS", bg: "bg-[#0078d4]/25", fg: "text-[#0078d4]", bgActive: "bg-white" };
     case "postgres":
-      return { label: "PG", bg: "bg-[#336791]/15", fg: "text-[#336791]" };
+      return { label: "PG", bg: "bg-[#336791]/25", fg: "text-[#336791]", bgActive: "bg-white" };
     case "mysql":
-      return { label: "MY", bg: "bg-[#00758f]/15", fg: "text-[#00758f]" };
+      return { label: "MY", bg: "bg-[#00758f]/25", fg: "text-[#00758f]", bgActive: "bg-white" };
     default:
-      return { label: "DB", bg: "bg-vscode-badge-background", fg: "text-vscode-badge-foreground" };
+      return { label: "DB", bg: "bg-vscode-badge-background", fg: "text-vscode-badge-foreground", bgActive: "bg-white" };
   }
 }
