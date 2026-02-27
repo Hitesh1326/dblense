@@ -23,9 +23,6 @@ export interface SearchOptions {
   typeFilter?: SchemaChunk["objectType"];
 }
 
-/** RRF constant for reciprocal rank fusion (typical value 60). */
-const RRF_K = 60;
-
 /** Allowed objectType values for typeFilter (used to build a safe WHERE clause). */
 const ALLOWED_OBJECT_TYPES = new Set<SchemaChunk["objectType"]>([
   "table",
@@ -51,40 +48,6 @@ function rowToChunk(row: Record<string, unknown>): SchemaChunk {
     embedding: (row.embedding as number[]) ?? [],
     crawledAt: row.crawledAt as string,
   };
-}
-
-/**
- * Merges two ranked result lists by Reciprocal Rank Fusion (RRF).
- * LanceDB Node SDK does not expose a built-in reranker; apply RRF client-side.
- * @param vectorResults Results from vector search (order = rank).
- * @param ftsResults Results from full-text search (order = rank).
- * @param topK Maximum number of chunks to return after fusion.
- * @returns Top-k chunks by combined RRF score.
- */
-function rerankWithRRF(
-  vectorResults: SchemaChunk[],
-  ftsResults: SchemaChunk[],
-  topK: number
-): SchemaChunk[] {
-  const scoreById = new Map<string, number>();
-  const chunkById = new Map<string, SchemaChunk>();
-
-  const add = (list: SchemaChunk[]) => {
-    list.forEach((chunk, rank) => {
-      const rrf = 1 / (RRF_K + rank + 1);
-      const cur = scoreById.get(chunk.id) ?? 0;
-      scoreById.set(chunk.id, cur + rrf);
-      if (!chunkById.has(chunk.id)) chunkById.set(chunk.id, chunk);
-    });
-  };
-  add(vectorResults);
-  add(ftsResults);
-
-  return Array.from(chunkById.entries())
-    .map(([id, chunk]) => ({ id, chunk, score: scoreById.get(id)! }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, topK)
-    .map(({ chunk }) => chunk);
 }
 
 /**
@@ -170,6 +133,7 @@ function computeStatsFromRows(
 export class VectorStoreManager {
   private conn: Connection | null = null;
   private initPromise: Promise<Connection> | null = null;
+  private rrfrerankerPromise: Promise<InstanceType<typeof lancedb.rerankers.RRFReranker>> | null = null;
 
   /**
    * @param storageUri Base directory for extension storage (LanceDB created here unless overridden by config).
@@ -255,8 +219,8 @@ export class VectorStoreManager {
   }
 
   /**
-   * Vector or hybrid search. With queryText, runs both vector (cosine) and full-text (BM25)
-   * and reranks via RRF; otherwise vector-only. Optional typeFilter restricts to one object type.
+   * Vector or hybrid search. With queryText, uses LanceDB built-in hybrid search (vector + FTS)
+   * with RRF reranker; otherwise vector-only. Optional typeFilter restricts to one object type.
    * @param connectionId Connection id.
    * @param queryEmbedding Query vector (same dimension as stored embeddings).
    * @param options topK, optional queryText (for hybrid), optional typeFilter.
@@ -277,29 +241,22 @@ export class VectorStoreManager {
         ? `objectType = '${typeFilter}'`
         : undefined;
 
-    const applyWhere = <T extends { where: (p: string) => T }>(q: T): T =>
-      whereClause ? q.where(whereClause) : q;
-
     if (queryText != null && queryText.trim().length > 0) {
-      const rrfLimit = Math.max(topK * 2, 60);
-      const vectorQuery = applyWhere(
-        table.vectorSearch(queryEmbedding).column(EMBEDDING_COLUMN).distanceType("cosine")
-      ).limit(rrfLimit);
-      const ftsQuery = applyWhere(
-        table.query().fullTextSearch(queryText.trim(), { columns: [CONTENT_COLUMN] })
-      ).limit(rrfLimit);
-      const [vectorOut, ftsOut] = await Promise.allSettled([
-        vectorQuery.toArray(),
-        ftsQuery.toArray(),
-      ]);
-      const vectorChunks = (vectorOut.status === "fulfilled"
-        ? (vectorOut.value as Record<string, unknown>[]).map(rowToChunk)
-        : []) as SchemaChunk[];
-      const ftsChunks = (ftsOut.status === "fulfilled"
-        ? (ftsOut.value as Record<string, unknown>[]).map(rowToChunk)
-        : []) as SchemaChunk[];
-      if (ftsChunks.length === 0) return vectorChunks.slice(0, topK);
-      return rerankWithRRF(vectorChunks, ftsChunks, topK);
+      if (!this.rrfrerankerPromise) {
+        this.rrfrerankerPromise = lancedb.rerankers.RRFReranker.create(60);
+      }
+      const reranker = await this.rrfrerankerPromise;
+      let hybridQuery = table
+        .query()
+        .fullTextSearch(queryText.trim(), { columns: [CONTENT_COLUMN] })
+        .nearestTo(queryEmbedding)
+        .column(EMBEDDING_COLUMN)
+        .distanceType("cosine")
+        .rerank(reranker)
+        .limit(topK);
+      if (whereClause) hybridQuery = hybridQuery.where(whereClause);
+      const results = await hybridQuery.toArray();
+      return (results as Record<string, unknown>[]).map(rowToChunk);
     }
 
     let query = table.vectorSearch(queryEmbedding).column(EMBEDDING_COLUMN).distanceType("cosine");

@@ -6,6 +6,9 @@
         "recordset",
         "Reindexing",
         "rerank",
+        "reranker",
+        "rerankers",
+        "rrfreranker",
         "schemasight",
         "vectorstore"
     ]

@@ -116,17 +116,17 @@
     "test": "vscode-test"
   },
   "dependencies": {
-    "@lancedb/lancedb": "^0.14.0",
-    "highlight.js": "^11.10.0",
-    "react-markdown": "^9.0.1",
-    "rehype-highlight": "^7.0.0",
+    "@lancedb/lancedb": "^0.17.0",
     "@xenova/transformers": "^2.17.2",
     "apache-arrow": "^17.0.0",
+    "highlight.js": "^11.10.0",
     "lucide-react": "^0.575.0",
     "mssql": "^11.0.1",
     "mysql2": "^3.11.5",
     "node-sql-parser": "^5.3.0",
-    "pg": "^8.13.1"
+    "pg": "^8.13.1",
+    "react-markdown": "^9.0.1",
+    "rehype-highlight": "^7.0.0"
   },
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.9",
