@@ -9,12 +9,12 @@ import { ReindexingBanner } from "./ReindexingBanner";
 /** Order of steps shown in the thinking block. */
 const STEPS_ORDER: ChatThinkingStep[] = ["embedding", "searching", "context", "generating"];
 
-/** Human-readable label per thinking step. */
+/** Human-readable label per thinking step (short, outcome-focused). */
 const STEP_LABELS: Record<ChatThinkingStep, string> = {
-  embedding: "Embedding your question",
+  embedding: "Understanding your question",
   searching: "Searching schema",
-  context: "Building context",
-  generating: "Generating answer",
+  context: "Preparing context",
+  generating: "Writing answer",
 };
 
 /** Singular/plural labels for object types (used in context summary). */
@@ -519,7 +519,7 @@ function ThinkingBlock({
   const stepDetail = (step: ChatThinkingStep): string | null => {
     switch (step) {
       case "embedding":
-        return "Encoded your question for semantic search.";
+        return "Turned your question into a search query.";
       case "searching":
         if (!ctx) return null;
         const time = ctx.searchMs != null ? ` in ${(ctx.searchMs / 1000).toFixed(2)}s` : "";
@@ -527,15 +527,14 @@ function ThinkingBlock({
       case "context":
         if (!ctx) return null;
         const typeList = typeBreakdown ? ` (${typeBreakdown})` : "";
-        const tokens = ctx.contextTokens != null ? ` ~${(ctx.contextTokens / 1000).toFixed(1)}k tokens sent to the model.` : ".";
+        const tokens = ctx.contextTokens != null ? ` ~${(ctx.contextTokens / 1000).toFixed(1)}k tokens in context.` : ".";
         const inIndex = ctx.totalInIndex != null ? ` (${ctx.totalInIndex} in index)` : "";
         return `Using ${ctx.chunksUsed} relevant schema objects for this answer${inIndex}${typeList}.${tokens}`;
       case "generating":
-        if (!thinking.model) return null;
         if (streamedChunkCount > 0) {
-          return `Streaming response from ${thinking.model}. … ${streamedChunkCount} tokens so far.`;
+          return `… ${streamedChunkCount} tokens so far.`;
         }
-        return `Streaming response from ${thinking.model}.`;
+        return null;
       default:
         return null;
     }
@@ -546,7 +545,7 @@ function ThinkingBlock({
       <div className="max-w-[85%] rounded-xl py-2.5 px-3 bg-vscode-editor-inactiveSelectionBackground/25">
         <div className="flex items-center gap-2 mb-2 thinking-pulse">
           <Sparkles size={12} className="text-vscode-descriptionForeground/80 shrink-0" aria-hidden />
-          <span className="text-[11px] text-vscode-descriptionForeground/90 tracking-wide uppercase">Thinking</span>
+          <span className="text-[11px] text-vscode-descriptionForeground/90 tracking-wide uppercase">How I'm answering</span>
         </div>
 
         <div className="space-y-2">
@@ -627,10 +626,10 @@ function CollapsedThinkingBlock({ thinking }: { thinking: ChatThinking }) {
   const ctx = thinking.context;
   const thoughtLabel =
     ctx && ctx.totalElapsedMs != null
-      ? `Thought for ${(ctx.totalElapsedMs / 1000).toFixed(1)}s`
+      ? `How this was answered (${(ctx.totalElapsedMs / 1000).toFixed(1)}s)`
       : ctx && ctx.searchMs != null
-        ? `Thought for ${(ctx.searchMs / 1000).toFixed(1)}s`
-        : "Thought";
+        ? `How this was answered (${(ctx.searchMs / 1000).toFixed(1)}s)`
+        : "How this was answered";
 
   return (
     <div className="flex justify-start mb-2">
@@ -692,7 +691,7 @@ function getCompletedStepDetail(step: ChatThinkingStep, thinking: ChatThinking):
       : null;
   switch (step) {
     case "embedding":
-      return "Encoded your question for semantic search.";
+      return "Turned your question into a search query.";
     case "searching":
       if (!ctx) return null;
       const time = ctx.searchMs != null ? ` in ${(ctx.searchMs / 1000).toFixed(2)}s` : "";
@@ -700,11 +699,11 @@ function getCompletedStepDetail(step: ChatThinkingStep, thinking: ChatThinking):
     case "context":
       if (!ctx) return null;
       const typeList = typeBreakdown ? ` (${typeBreakdown})` : "";
-      const tokens = ctx.contextTokens != null ? ` ~${(ctx.contextTokens / 1000).toFixed(1)}k tokens sent to the model.` : ".";
+      const tokens = ctx.contextTokens != null ? ` ~${(ctx.contextTokens / 1000).toFixed(1)}k tokens in context.` : ".";
       const inIndex = ctx.totalInIndex != null ? ` (${ctx.totalInIndex} in index)` : "";
       return `Using ${ctx.chunksUsed} relevant schema objects for this answer${inIndex}${typeList}.${tokens}`;
     case "generating":
-      return thinking.model ? `Streaming response from ${thinking.model}.` : null;
+      return null;
     default:
       return null;
   }
