@@ -112,7 +112,15 @@ export type WebviewToExtensionMessage =
   | { type: "CRAWL_SCHEMA"; payload: { id: string } }
   | { type: "CRAWL_CANCEL"; payload: { connectionId: string } }
   | { type: "GET_OLLAMA_STATUS" }
-  | { type: "CHAT"; payload: { connectionId: string; message: string; history: ChatMessage[] } }
+  | {
+      type: "CHAT";
+      payload: {
+        connectionId: string;
+        message: string;
+        history: ChatMessage[];
+        summary?: string;
+      };
+    }
   | { type: "GET_CRAWL_STATUS"; payload: { connectionId: string } }
   | { type: "CLEAR_INDEX"; payload: { connectionId: string } }
   | { type: "GET_INDEX_STATS"; payload: { connectionId: string } };
@@ -131,7 +139,10 @@ export type ExtensionToWebviewMessage =
   | { type: "CRAWLED_CONNECTION_IDS"; payload: string[] }
   | { type: "CHAT_CHUNK"; payload: { token: string } }
   | { type: "CHAT_THINKING"; payload: ChatThinking }
-  | { type: "CHAT_DONE" }
+  | {
+      type: "CHAT_DONE";
+      payload?: { summary: string; truncatedHistory: ChatMessage[] };
+    }
   | { type: "CHAT_ERROR"; payload: { error: string } }
   | { type: "INDEX_CLEARED"; payload: { connectionId: string } }
   | { type: "INDEX_STATS"; payload: { connectionId: string; stats: IndexStats | null } }

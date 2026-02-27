@@ -11,6 +11,8 @@ const SUMMARIZE_SYSTEM = `Summarize the following database schema or stored proc
 
 const QUERY_REWRITE_SYSTEM = `You are a query rewriter for a database schema search. Given a conversation and the latest user message, output a single standalone search query that captures what the user is asking. Resolve references like "it", "that", "the procedure" using the conversation. Output only the search query, one line, no preamble or explanation.`;
 
+const CONVERSATION_SUMMARY_SYSTEM = `Summarize this conversation in 1-2 short paragraphs. Preserve database object names (tables, procedures, functions, views), key facts the user asked about, and any references the assistant made. The summary will be used as context so later messages can still refer to earlier topics. Output only the summary, no preamble.`;
+
 /** Response shape from GET /api/tags. */
 interface OllamaTagsResponse {
   models?: { name?: string }[];
@@ -82,6 +84,19 @@ export class OllamaService {
     const raw = await this.generate(content, SUMMARIZE_SYSTEM);
     if (typeof raw !== "string") {
       throw new Error("Ollama response missing or invalid 'response' field");
+    }
+    return raw.trim();
+  }
+
+  /**
+   * Summarizes a conversation segment for context compression. Preserves entity names and references.
+   * @param prompt Formatted conversation (from PromptBuilder.buildConversationSummaryPrompt).
+   * @returns Summary string; throws on API or invalid response.
+   */
+  async summarizeConversation(prompt: string): Promise<string> {
+    const raw = await this.generate(prompt, CONVERSATION_SUMMARY_SYSTEM);
+    if (typeof raw !== "string") {
+      throw new Error("Ollama conversation summary missing or invalid");
     }
     return raw.trim();
   }

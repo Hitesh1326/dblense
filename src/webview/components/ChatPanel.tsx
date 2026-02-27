@@ -39,15 +39,17 @@ function formatTokenCount(n: number): string {
   return String(n);
 }
 
-/** Context usage line above input: "4.3k / 8k (54%)" with tiny progress bar. */
+/** Context usage line above input: "4.3k / 8k (54%)" with tiny progress bar. Optional children render between label and bar. */
 function ContextIndicator({
   usedTokens,
   limitTokens,
   isStreaming = false,
+  children,
 }: {
   usedTokens?: number;
   limitTokens?: number;
   isStreaming?: boolean;
+  children?: React.ReactNode;
 }) {
   const used = usedTokens ?? 0;
   const limit = limitTokens ?? 0;
@@ -62,18 +64,20 @@ function ContextIndicator({
 
   if (isStreaming && !hasData) {
     return (
-      <div className="flex justify-start items-center gap-2 min-h-[18px]" aria-busy="true">
+      <div className="flex justify-start items-center gap-2 min-h-[18px] w-fit shrink-0" aria-busy="true">
         <Loader2 size={10} className="animate-spin text-vscode-descriptionForeground shrink-0" aria-hidden />
         <span className="text-[10px] text-vscode-descriptionForeground">Context: …</span>
+        {children}
       </div>
     );
   }
 
   return (
-    <div className="flex justify-start items-center gap-2 min-h-[18px]">
-      <span className="text-[10px] text-vscode-descriptionForeground">{label}</span>
+    <div className="flex justify-start items-center gap-2 min-h-[18px] w-fit shrink-0">
+      <span className="text-[10px] text-vscode-descriptionForeground shrink-0">{label}</span>
+      {children}
       <div
-        className="w-14 h-[2px] rounded-full bg-vscode-descriptionForeground/20 overflow-hidden"
+        className="w-14 h-[2px] shrink-0 rounded-full bg-vscode-descriptionForeground/20 overflow-hidden"
         aria-hidden
       >
         <div
@@ -93,6 +97,7 @@ interface ChatPanelProps {
   showThinkingBlock: boolean;
   lastCompletedThinking: ChatThinking | null;
   streamedChunkCount: number;
+  isSummarized: boolean;
   onSend: (text: string) => void;
   onClear: () => void;
   connectionId: string | null;
@@ -120,6 +125,7 @@ export function ChatPanel({
   showThinkingBlock,
   lastCompletedThinking,
   streamedChunkCount,
+  isSummarized,
   onSend,
   onClear,
   connectionId,
@@ -301,11 +307,25 @@ export function ChatPanel({
 
         <div className="p-3 flex flex-col gap-1.5">
           {messages.length > 0 && (
-            <ContextIndicator
-              usedTokens={lastCompletedThinking?.context?.contextTokens}
-              limitTokens={lastCompletedThinking?.context?.contextLimit}
-              isStreaming={isStreaming}
-            />
+            <div className="inline-flex items-center min-h-[18px] gap-0 self-start">
+              <ContextIndicator
+                usedTokens={lastCompletedThinking?.context?.contextTokens}
+                limitTokens={lastCompletedThinking?.context?.contextLimit}
+                isStreaming={isStreaming}
+              >
+                {isSummarized && (
+                  <span className="inline-flex items-center gap-0.5 shrink-0">
+                    <span
+                      className="h-3.5 w-px min-w-px bg-vscode-descriptionForeground shrink-0 opacity-70"
+                      aria-hidden
+                    />
+                    <span className="text-[10px] text-vscode-descriptionForeground ml-0.5">
+                      Context summarized. Clear chat to start fresh.
+                    </span>
+                  </span>
+                )}
+              </ContextIndicator>
+            </div>
           )}
 
           <div className="relative flex-1 min-h-[44px]">

@@ -7,7 +7,7 @@ import { EmbeddingService } from "../embeddings/EmbeddingService";
 import { VectorStoreManager } from "../vectorstore/VectorStoreManager";
 import { Indexer } from "../vectorstore/Indexer";
 import { logger } from "../utils/logger";
-import type { SchemaChunk, ChatThinking, ChatMessage } from "../shared/types";
+import type { SchemaChunk, ChatThinking, ChatMessage, DbConnectionConfig } from "../shared/types";
 import {
   WebviewToExtensionMessage,
   ExtensionToWebviewMessage,
@@ -44,6 +44,18 @@ function isBroadSchemaQuery(message: string): boolean {
 }
 
 type PostMessage = (message: ExtensionToWebviewMessage) => void;
+
+const CONTEXT_THRESHOLD = 0.9;
+const FIRST_SUMMARY_LAST_N = 10;
+const RE_SUMMARY_LAST_N = 5;
+
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
+function estimateHistoryTokens(messages: ChatMessage[]): number {
+  return messages.reduce((acc, m) => acc + estimateTokens(m.content), 0);
+}
 
 /** Injected services used to fulfill webview message requests. */
 interface Services {
@@ -249,20 +261,19 @@ export class MessageRouter {
   }
 
   /**
-   * Runs RAG chat: fetches chunks (full schema or vector search), builds system prompt, posts
-   * CHAT_THINKING steps, streams response via Ollama, then CHAT_DONE or CHAT_ERROR.
-   * @param payload - connectionId, user message, and chat history.
+   * Runs RAG chat: fetches chunks, builds system prompt, optionally summarizes conversation at ~90%
+   * context usage, posts CHAT_THINKING steps, streams via Ollama, then CHAT_DONE or CHAT_ERROR.
+   * @param payload - connectionId, user message, history, and optional summary (when in summary mode).
    * @param post - Callback to send messages to the webview.
    */
   private async handleChat(payload: ChatPayload, post: PostMessage): Promise<void> {
     const chatStartMs = Date.now();
-    const { connectionId, message: userMessage, history } = payload;
-    const config = await this.services.connectionManager.getById(connectionId);
-    if (!config) {
-      post({ type: "CHAT_ERROR", payload: { error: "Connection not found" } });
-      return;
-    }
+    const setup = await this.getChatSetup(payload, post);
+    if (!setup) return;
+
+    const { connectionId, userMessage, history, existingSummary, config, contextLimit } = setup;
     const postThinking = (p: ChatThinking) => post({ type: "CHAT_THINKING", payload: p });
+
     try {
       const { chunks, searchMs } = await this.getChunksForChat(
         connectionId,
@@ -271,32 +282,223 @@ export class MessageRouter {
         postThinking
       );
       const systemPrompt = this.services.promptBuilder.buildRagSystemPrompt(chunks, config.database);
-      const contextTokens = Math.round(systemPrompt.length / 4);
-      const contextPayload = this.buildChatContextPayload(chunks, searchMs, contextTokens);
-      postThinking({ step: "context", context: contextPayload });
-      postThinking({
-        step: "generating",
-        model: this.services.ollamaService.getModelName(),
-        context: contextPayload,
-      });
-      await this.services.ollamaService.chat(
-        systemPrompt,
+      const systemTokens = estimateTokens(systemPrompt);
+      const userTokens = estimateTokens(userMessage);
+
+      const historyForApi = this.buildInitialHistoryForApi(history, existingSummary);
+      const summarizationResult = await this.applySummarizationIfNeeded({
+        historyForApi,
         history,
-        userMessage,
-        (token) => post({ type: "CHAT_CHUNK", payload: { token } })
-      );
-      const totalElapsedMs = Date.now() - chatStartMs;
-      const contextLimit = await this.services.ollamaService.getContextLength();
-      postThinking({
-        step: "generating",
-        model: this.services.ollamaService.getModelName(),
-        context: { ...contextPayload, totalElapsedMs, contextLimit },
+        existingSummary,
+        systemTokens,
+        userTokens,
+        contextLimit,
+        post,
       });
-      post({ type: "CHAT_DONE" });
+      if (summarizationResult === null) return;
+
+      const { historyForApi: finalHistory, donePayload } = summarizationResult;
+      await this.streamChatAndFinish({
+        systemPrompt,
+        historyForApi: finalHistory,
+        userMessage,
+        chunks,
+        searchMs,
+        contextLimit,
+        chatStartMs,
+        donePayload,
+        postThinking,
+        post,
+      });
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
       logger.error("Chat RAG failed", err);
       post({ type: "CHAT_ERROR", payload: { error } });
+    }
+  }
+
+  /**
+   * Resolves config and context limit; posts CHAT_ERROR if connection not found.
+   * @param payload - Incoming CHAT payload.
+   * @param post - Callback to send messages to the webview.
+   * @returns Setup object or null if invalid.
+   */
+  private async getChatSetup(
+    payload: ChatPayload,
+    post: PostMessage
+  ): Promise<{
+    connectionId: string;
+    userMessage: string;
+    history: ChatMessage[];
+    existingSummary: string | undefined;
+    config: DbConnectionConfig;
+    contextLimit: number;
+  } | null> {
+    const { connectionId, message: userMessage, history, summary: existingSummary } = payload;
+    const config = await this.services.connectionManager.getById(connectionId);
+    if (!config) {
+      post({ type: "CHAT_ERROR", payload: { error: "Connection not found" } });
+      return null;
+    }
+    const contextLimit = await this.services.ollamaService.getContextLength();
+    return { connectionId, userMessage, history, existingSummary, config, contextLimit };
+  }
+
+  /**
+   * Builds the history array to send to the API: either existing summary + last N or full history.
+   * @param history - Chat history (full or last N when in summary mode).
+   * @param existingSummary - Optional summary from a previous round.
+   */
+  private buildInitialHistoryForApi(
+    history: ChatMessage[],
+    existingSummary: string | undefined
+  ): ChatMessage[] {
+    if (existingSummary != null && existingSummary.length > 0) {
+      return [
+        {
+          role: "assistant",
+          content: `Previous conversation summary:\n\n${existingSummary}`,
+          timestamp: "",
+        },
+        ...history,
+      ];
+    }
+    return history;
+  }
+
+  /**
+   * If over context limit, posts error and returns null. If at ~90%, runs first or re-summarization
+   * and returns updated history + optional CHAT_DONE payload. Otherwise returns current history.
+   * @param params - historyForApi, history, existingSummary, token counts, contextLimit, and post.
+   * @returns Final history and optional donePayload, or null to abort.
+   */
+  private async applySummarizationIfNeeded(params: {
+    historyForApi: ChatMessage[];
+    history: ChatMessage[];
+    existingSummary: string | undefined;
+    systemTokens: number;
+    userTokens: number;
+    contextLimit: number;
+    post: PostMessage;
+  }): Promise<{
+    historyForApi: ChatMessage[];
+    donePayload?: { summary: string; truncatedHistory: ChatMessage[] };
+  } | null> {
+    const { historyForApi, history, existingSummary, systemTokens, userTokens, contextLimit, post } = params;
+    const historyTokens = estimateHistoryTokens(historyForApi);
+    const totalEstimated = systemTokens + historyTokens + userTokens;
+
+    if (totalEstimated >= contextLimit) {
+      post({
+        type: "CHAT_ERROR",
+        payload: { error: "Conversation is too long. Clear the conversation to continue." },
+      });
+      return null;
+    }
+
+    if (totalEstimated < CONTEXT_THRESHOLD * contextLimit) {
+      return { historyForApi, donePayload: undefined };
+    }
+
+    if (existingSummary == null || existingSummary.length === 0) {
+      const toSummarize = history.slice(0, -FIRST_SUMMARY_LAST_N);
+      const lastN = history.slice(-FIRST_SUMMARY_LAST_N);
+      if (toSummarize.length === 0) {
+        return { historyForApi, donePayload: undefined };
+      }
+      const summaryPrompt = this.services.promptBuilder.buildConversationSummaryPrompt(toSummarize);
+      const summaryText = await this.services.ollamaService.summarizeConversation(summaryPrompt);
+      return {
+        historyForApi: [
+          {
+            role: "assistant",
+            content: `Previous conversation summary:\n\n${summaryText}`,
+            timestamp: "",
+          },
+          ...lastN,
+        ],
+        donePayload: { summary: summaryText, truncatedHistory: lastN },
+      };
+    }
+
+    const toMerge = history.slice(0, -RE_SUMMARY_LAST_N);
+    const newLastN = history.slice(-RE_SUMMARY_LAST_N);
+    const mergePrompt =
+      existingSummary +
+      "\n\n---\n\n" +
+      this.services.promptBuilder.buildConversationSummaryPrompt(toMerge);
+    const newSummary = await this.services.ollamaService.summarizeConversation(mergePrompt);
+    return {
+      historyForApi: [
+        {
+          role: "assistant",
+          content: `Previous conversation summary:\n\n${newSummary}`,
+          timestamp: "",
+        },
+        ...newLastN,
+      ],
+      donePayload: { summary: newSummary, truncatedHistory: newLastN },
+    };
+  }
+
+  /**
+   * Posts context/generating steps, streams Ollama response, then posts final thinking and CHAT_DONE.
+   * @param params - systemPrompt, historyForApi, userMessage, chunks, searchMs, contextLimit, chatStartMs, donePayload, postThinking, post.
+   */
+  private async streamChatAndFinish(params: {
+    systemPrompt: string;
+    historyForApi: ChatMessage[];
+    userMessage: string;
+    chunks: SchemaChunk[];
+    searchMs: number | undefined;
+    contextLimit: number;
+    chatStartMs: number;
+    donePayload: { summary: string; truncatedHistory: ChatMessage[] } | undefined;
+    postThinking: (p: ChatThinking) => void;
+    post: PostMessage;
+  }): Promise<void> {
+    const {
+      systemPrompt,
+      historyForApi,
+      userMessage,
+      chunks,
+      searchMs,
+      contextLimit,
+      chatStartMs,
+      donePayload,
+      postThinking,
+      post,
+    } = params;
+
+    const contextTokens =
+      estimateTokens(systemPrompt) + estimateHistoryTokens(historyForApi) + estimateTokens(userMessage);
+    const contextPayload = this.buildChatContextPayload(chunks, searchMs, contextTokens);
+
+    postThinking({ step: "context", context: contextPayload });
+    postThinking({
+      step: "generating",
+      model: this.services.ollamaService.getModelName(),
+      context: contextPayload,
+    });
+
+    await this.services.ollamaService.chat(
+      systemPrompt,
+      historyForApi,
+      userMessage,
+      (token) => post({ type: "CHAT_CHUNK", payload: { token } })
+    );
+
+    const totalElapsedMs = Date.now() - chatStartMs;
+    postThinking({
+      step: "generating",
+      model: this.services.ollamaService.getModelName(),
+      context: { ...contextPayload, totalElapsedMs, contextLimit },
+    });
+
+    if (donePayload) {
+      post({ type: "CHAT_DONE", payload: donePayload });
+    } else {
+      post({ type: "CHAT_DONE" });
     }
   }
 

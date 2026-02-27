@@ -17,6 +17,14 @@ export class PromptBuilder {
   }
 
   /**
+   * Builds the prompt for summarizing older conversation turns. Preserves entity names and references.
+   */
+  buildConversationSummaryPrompt(messages: ChatMessage[]): string {
+    const lines = messages.map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`);
+    return lines.join("\n\n");
+  }
+
+  /**
    * Builds the prompt for rewriting a follow-up message into a standalone search query
    * so retrieval stays focused on what the user is asking about (e.g. "it" → GetSupplierUpdates).
    * @param history Previous chat messages (user and assistant).

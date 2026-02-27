@@ -43,6 +43,7 @@ export function App() {
     showThinkingBlock,
     lastCompletedThinking,
     streamedChunkCount,
+    isSummarized,
     clearHistory,
   } = useChat(activeConnectionId);
   const { available: ollamaAvailable, model: ollamaModel, modelPulled: ollamaModelPulled, check: checkOllama } =
@@ -110,6 +111,7 @@ export function App() {
                 showThinkingBlock={showThinkingBlock}
                 lastCompletedThinking={lastCompletedThinking}
                 streamedChunkCount={streamedChunkCount}
+                isSummarized={isSummarized}
                 onSend={sendMessage}
                 onClear={clearHistory}
                 connectionId={activeConnectionId}

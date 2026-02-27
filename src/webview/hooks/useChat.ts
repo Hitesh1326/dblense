@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { ChatMessage, ChatThinking } from "../../shared/types";
 import { postMessage, onMessage } from "../vscodeApi";
 
+const LAST_N = 10;
+
 /** Return type of useChat: message list, streaming/thinking state, and actions. */
 interface UseChatReturn {
   messages: ChatMessage[];
@@ -10,6 +12,7 @@ interface UseChatReturn {
   showThinkingBlock: boolean;
   lastCompletedThinking: ChatThinking | null;
   streamedChunkCount: number;
+  isSummarized: boolean;
   sendMessage: (text: string) => void;
   clearHistory: () => void;
 }
@@ -24,6 +27,7 @@ interface UseChatReturn {
  */
 export function useChat(connectionId: string | null): UseChatReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [summary, setSummary] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [thinking, setThinking] = useState<ChatThinking | null>(null);
   const [showThinkingBlock, setShowThinkingBlock] = useState(false);
@@ -61,7 +65,7 @@ export function useChat(connectionId: string | null): UseChatReturn {
             ];
           });
           break;
-        case "CHAT_DONE":
+        case "CHAT_DONE": {
           setLastCompletedThinking(thinkingRef.current ?? null);
           thinkingRef.current = null;
           setIsStreaming(false);
@@ -69,7 +73,12 @@ export function useChat(connectionId: string | null): UseChatReturn {
           setThinking(null);
           setStreamedChunkCount(0);
           streamBufferRef.current = "";
+          const payload = message.payload;
+          if (payload?.summary != null) {
+            setSummary(payload.summary);
+          }
           break;
+        }
         case "CHAT_ERROR":
           thinkingRef.current = null;
           setLastCompletedThinking(null);
@@ -115,15 +124,17 @@ export function useChat(connectionId: string | null): UseChatReturn {
         payload: {
           connectionId,
           message: text,
-          history: messages,
+          history: summary != null ? messages.slice(-LAST_N) : messages,
+          ...(summary != null && summary.length > 0 ? { summary } : {}),
         },
       });
     },
-    [connectionId, isStreaming, messages]
+    [connectionId, isStreaming, messages, summary]
   );
 
   const clearHistory = useCallback(() => {
     setMessages([]);
+    setSummary(null);
     setLastCompletedThinking(null);
     streamBufferRef.current = "";
   }, []);
@@ -135,6 +146,7 @@ export function useChat(connectionId: string | null): UseChatReturn {
     showThinkingBlock,
     lastCompletedThinking,
     streamedChunkCount,
+    isSummarized: summary != null && summary.length > 0,
     sendMessage,
     clearHistory,
   };
