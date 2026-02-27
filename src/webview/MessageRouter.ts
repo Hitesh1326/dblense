@@ -299,6 +299,7 @@ export class MessageRouter {
 
       const { historyForApi: finalHistory, donePayload } = summarizationResult;
       await this.streamChatAndFinish({
+        connectionId,
         systemPrompt,
         historyForApi: finalHistory,
         userMessage,
@@ -443,9 +444,10 @@ export class MessageRouter {
 
   /**
    * Posts context/generating steps, streams Ollama response, then posts final thinking and CHAT_DONE.
-   * @param params - systemPrompt, historyForApi, userMessage, chunks, searchMs, contextLimit, chatStartMs, donePayload, postThinking, post.
+   * @param params - connectionId, systemPrompt, historyForApi, userMessage, chunks, searchMs, contextLimit, chatStartMs, donePayload, postThinking, post.
    */
   private async streamChatAndFinish(params: {
+    connectionId: string;
     systemPrompt: string;
     historyForApi: ChatMessage[];
     userMessage: string;
@@ -458,6 +460,7 @@ export class MessageRouter {
     post: PostMessage;
   }): Promise<void> {
     const {
+      connectionId,
       systemPrompt,
       historyForApi,
       userMessage,
@@ -472,7 +475,9 @@ export class MessageRouter {
 
     const contextTokens =
       estimateTokens(systemPrompt) + estimateHistoryTokens(historyForApi) + estimateTokens(userMessage);
-    const contextPayload = this.buildChatContextPayload(chunks, searchMs, contextTokens);
+    const stats = await this.services.vectorStoreManager.getIndexStats(connectionId);
+    const totalInIndex = stats?.totalChunks;
+    const contextPayload = this.buildChatContextPayload(chunks, searchMs, contextTokens, totalInIndex);
 
     postThinking({ step: "context", context: contextPayload });
     postThinking({
@@ -548,18 +553,27 @@ export class MessageRouter {
   }
 
   /**
-   * Builds the context payload for CHAT_THINKING (chunksUsed, byType, objectNames, searchMs, contextTokens).
+   * Builds the context payload for CHAT_THINKING (chunksUsed, byType, objectNames, searchMs, contextTokens, totalInIndex).
    *
    * @param chunks - Chunks used for RAG context.
    * @param searchMs - Optional search duration in ms.
    * @param contextTokens - Approximate token count of the system prompt.
+   * @param totalInIndex - Total schema objects in the index (for "N of M" in UI).
    * @returns Payload for the "context" and "generating" thinking steps.
    */
   private buildChatContextPayload(
     chunks: SchemaChunk[],
     searchMs: number | undefined,
-    contextTokens: number
-  ): { chunksUsed: number; byType: Record<string, number>; objectNames: string[]; searchMs: number | undefined; contextTokens: number } {
+    contextTokens: number,
+    totalInIndex?: number
+  ): {
+    chunksUsed: number;
+    byType: Record<string, number>;
+    objectNames: string[];
+    searchMs: number | undefined;
+    contextTokens: number;
+    totalInIndex?: number;
+  } {
     const byType: Record<string, number> = {};
     for (const c of chunks) {
       byType[c.objectType] = (byType[c.objectType] ?? 0) + 1;
@@ -571,6 +585,7 @@ export class MessageRouter {
       objectNames,
       searchMs,
       contextTokens,
+      totalInIndex,
     };
   }
 

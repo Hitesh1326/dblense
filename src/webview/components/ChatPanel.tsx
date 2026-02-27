@@ -523,12 +523,13 @@ function ThinkingBlock({
       case "searching":
         if (!ctx) return null;
         const time = ctx.searchMs != null ? ` in ${(ctx.searchMs / 1000).toFixed(2)}s` : "";
-        return `Found ${ctx.chunksUsed} chunks${time}.`;
+        return `Retrieved ${ctx.chunksUsed} relevant objects${time}.`;
       case "context":
         if (!ctx) return null;
         const typeList = typeBreakdown ? ` (${typeBreakdown})` : "";
         const tokens = ctx.contextTokens != null ? ` ~${(ctx.contextTokens / 1000).toFixed(1)}k tokens sent to the model.` : ".";
-        return `Included ${ctx.chunksUsed} objects${typeList}.${tokens}`;
+        const inIndex = ctx.totalInIndex != null ? ` (${ctx.totalInIndex} in index)` : "";
+        return `Using ${ctx.chunksUsed} relevant schema objects for this answer${inIndex}${typeList}.${tokens}`;
       case "generating":
         if (!thinking.model) return null;
         if (streamedChunkCount > 0) {
@@ -600,7 +601,7 @@ function ThinkingBlock({
                       ) : (
                         <ChevronRight size={10} aria-hidden />
                       )}
-                      Objects ({ctx!.objectNames.length})
+                      Objects ({ctx!.totalInIndex != null ? `${ctx!.chunksUsed} of ${ctx!.totalInIndex}` : ctx!.chunksUsed})
                     </button>
                     {objectsExpanded && (
                       <p className="mt-1 text-[10px] text-vscode-descriptionForeground/50 leading-relaxed break-words">
@@ -695,12 +696,13 @@ function getCompletedStepDetail(step: ChatThinkingStep, thinking: ChatThinking):
     case "searching":
       if (!ctx) return null;
       const time = ctx.searchMs != null ? ` in ${(ctx.searchMs / 1000).toFixed(2)}s` : "";
-      return `Found ${ctx.chunksUsed} chunks${time}.`;
+      return `Retrieved ${ctx.chunksUsed} relevant objects${time}.`;
     case "context":
       if (!ctx) return null;
       const typeList = typeBreakdown ? ` (${typeBreakdown})` : "";
       const tokens = ctx.contextTokens != null ? ` ~${(ctx.contextTokens / 1000).toFixed(1)}k tokens sent to the model.` : ".";
-      return `Included ${ctx.chunksUsed} objects${typeList}.${tokens}`;
+      const inIndex = ctx.totalInIndex != null ? ` (${ctx.totalInIndex} in index)` : "";
+      return `Using ${ctx.chunksUsed} relevant schema objects for this answer${inIndex}${typeList}.${tokens}`;
     case "generating":
       return thinking.model ? `Streaming response from ${thinking.model}.` : null;
     default:

@@ -179,6 +179,7 @@ export interface ChatThinkingContext {
   contextTokens?: number;
   contextLimit?: number;
   totalElapsedMs?: number;
+  totalInIndex?: number;
 }
 
 /** Progress payload for CHAT_THINKING: current step and optional context/model info. */
