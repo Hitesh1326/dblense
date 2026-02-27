@@ -144,13 +144,6 @@ export function ChatPanel({
   const [clearConfirmShown, setClearConfirmShown] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  /** Suggested prompts when the thread is empty (high-level, one-click send). */
-  const SUGGESTED_PROMPTS = [
-    "What is this database about?",
-    "Give me a high-level overview of the schema",
-    "What are the main areas of this database?",
-  ];
-
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -213,153 +206,287 @@ export function ChatPanel({
   return (
     <div className="flex flex-col h-full min-h-0">
       {showReindexingBanner && <ReindexingBanner progress={crawlProgress} onCancel={onCancelCrawl} />}
+      <ChatHeader
+        connectionName={connectionName}
+        onClearClick={handleClearClick}
+        hasMessages={messages.length > 0}
+      />
+      <ChatBody
+        messages={messages}
+        isStreaming={isStreaming}
+        thinking={thinking}
+        showThinkingBlock={showThinkingBlock}
+        lastCompletedThinking={lastCompletedThinking}
+        streamedChunkCount={streamedChunkCount}
+        connectionId={connectionId}
+        onSuggestedPrompt={handleSuggestedPrompt}
+        bottomRef={bottomRef}
+      />
+      <ChatFooter
+        clearConfirmShown={clearConfirmShown}
+        onClearConfirmCancel={() => setClearConfirmShown(false)}
+        onClearConfirm={handleClearConfirm}
+        messagesLength={messages.length}
+        lastCompletedThinking={lastCompletedThinking}
+        isStreaming={isStreaming}
+        isSummarized={isSummarized}
+        input={input}
+        setInput={setInput}
+        onSend={handleSend}
+        onKeyDown={handleKeyDown}
+        connectionId={connectionId}
+      />
+    </div>
+  );
+}
 
-      <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-vscode-panel-border bg-vscode-editorGroupHeader-tabsBackground shrink-0">
-        <span className="text-sm text-vscode-foreground truncate min-w-0">
-          Database: {connectionName}
-        </span>
+/** Top bar: database name and clear-conversation button. */
+function ChatHeader({
+  connectionName,
+  onClearClick,
+  hasMessages,
+}: {
+  connectionName: string;
+  onClearClick: () => void;
+  hasMessages: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-vscode-panel-border bg-vscode-editorGroupHeader-tabsBackground shrink-0">
+      <span className="text-sm text-vscode-foreground truncate min-w-0">Database: {connectionName}</span>
+      <button
+        type="button"
+        onClick={onClearClick}
+        disabled={!hasMessages}
+        title="Clear conversation"
+        aria-label="Clear conversation"
+        className="shrink-0 p-1.5 rounded opacity-40 hover:opacity-70 text-vscode-descriptionForeground hover:text-vscode-foreground hover:bg-vscode-toolbar-hoverBackground disabled:opacity-20 disabled:cursor-not-allowed transition-all border-l border-vscode-panel-border pl-3 -ml-1"
+      >
+        <Trash2 size={16} aria-hidden />
+      </button>
+    </div>
+  );
+}
+
+/** Centered empty state: icon, short copy, and suggested prompt buttons. */
+function EmptyState({
+  connectionId,
+  isStreaming,
+  onSuggestedPrompt,
+  suggestedPrompts,
+}: {
+  connectionId: string | null;
+  isStreaming: boolean;
+  onSuggestedPrompt: (text: string) => void;
+  suggestedPrompts: string[];
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-4 opacity-90">
+      <Database size={48} strokeWidth={1.5} className="text-vscode-descriptionForeground" />
+      <p className="text-sm text-center text-vscode-descriptionForeground">
+        Ask anything about your database schema, tables, or stored procedures.
+      </p>
+      {connectionId && !isStreaming && (
+        <div className="flex flex-wrap justify-center gap-2 max-w-md">
+          {suggestedPrompts.map((prompt) => (
+            <button
+              key={prompt}
+              type="button"
+              onClick={() => onSuggestedPrompt(prompt)}
+              className="px-3 py-1.5 rounded-full text-xs bg-vscode-editor-inactiveSelectionBackground/50 text-vscode-foreground hover:bg-vscode-list-hoverBackground border border-vscode-input-border transition-colors"
+            >
+              {prompt}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Scrollable message list: empty state, message bubbles, thinking block or dots, and scroll anchor. */
+function ChatBody({
+  messages,
+  isStreaming,
+  thinking,
+  showThinkingBlock,
+  lastCompletedThinking,
+  streamedChunkCount,
+  connectionId,
+  onSuggestedPrompt,
+  bottomRef,
+}: {
+  messages: ChatMessage[];
+  isStreaming: boolean;
+  thinking: ChatThinking | null;
+  showThinkingBlock: boolean;
+  lastCompletedThinking: ChatThinking | null;
+  streamedChunkCount: number;
+  connectionId: string | null;
+  onSuggestedPrompt: (text: string) => void;
+  bottomRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  const ref = bottomRef as React.RefObject<HTMLDivElement>;
+  const suggestedPrompts = [
+    "What is this database about?",
+    "Give me a high-level overview of the schema",
+    "What are the main areas of this database?",
+  ];
+
+  return (
+    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      {messages.length === 0 && (
+        <EmptyState
+          connectionId={connectionId}
+          isStreaming={isStreaming}
+          onSuggestedPrompt={onSuggestedPrompt}
+          suggestedPrompts={suggestedPrompts}
+        />
+      )}
+      {messages.map((msg, i) => (
+        <MessageBubble key={`${i}-${msg.timestamp}`} message={msg} />
+      ))}
+      {isStreaming && thinking && showThinkingBlock && (
+        <ThinkingBlock thinking={thinking} streamedChunkCount={streamedChunkCount} />
+      )}
+      {!isStreaming && lastCompletedThinking && (
+        <CollapsedThinkingBlock thinking={lastCompletedThinking} />
+      )}
+      {isStreaming && !showThinkingBlock && (
+        <div className="flex gap-1 pl-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:0ms]" />
+          <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:150ms]" />
+          <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:300ms]" />
+        </div>
+      )}
+      <div ref={ref} />
+    </div>
+  );
+}
+
+/** Inline bar: "Clear conversation? This cannot be undone." with Cancel / Clear. */
+function ClearConfirmBar({
+  onCancel,
+  onConfirm,
+}: {
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="px-3 py-2 flex items-center justify-between gap-3 bg-vscode-input-background/80 border-b border-vscode-input-border">
+      <span className="text-xs text-vscode-foreground">Clear conversation? This cannot be undone.</span>
+      <div className="flex gap-2 shrink-0">
         <button
           type="button"
-          onClick={handleClearClick}
-          disabled={messages.length === 0}
-          title="Clear conversation"
-          aria-label="Clear conversation"
-          className="shrink-0 p-1.5 rounded opacity-40 hover:opacity-70 text-vscode-descriptionForeground hover:text-vscode-foreground hover:bg-vscode-toolbar-hoverBackground disabled:opacity-20 disabled:cursor-not-allowed transition-all border-l border-vscode-panel-border pl-3 -ml-1"
+          onClick={onCancel}
+          className="px-2 py-1 rounded text-xs text-vscode-foreground bg-vscode-button-secondaryBackground hover:bg-vscode-button-secondaryHoverBackground"
         >
-          <Trash2 size={16} aria-hidden />
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={onConfirm}
+          className="px-2 py-1 rounded text-xs text-vscode-button-foreground bg-vscode-button-background hover:bg-vscode-button-hoverBackground"
+        >
+          Clear
         </button>
       </div>
+    </div>
+  );
+}
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full gap-4 opacity-90">
-            <Database size={48} strokeWidth={1.5} className="text-vscode-descriptionForeground" />
-            <p className="text-sm text-center text-vscode-descriptionForeground">
-              Ask anything about your database schema, tables, or stored procedures.
-            </p>
-            {connectionId && !isStreaming && (
-              <div className="flex flex-wrap justify-center gap-2 max-w-md">
-                {SUGGESTED_PROMPTS.map((prompt) => (
-                  <button
-                    key={prompt}
-                    type="button"
-                    onClick={() => handleSuggestedPrompt(prompt)}
-                    className="px-3 py-1.5 rounded-full text-xs bg-vscode-editor-inactiveSelectionBackground/50 text-vscode-foreground hover:bg-vscode-list-hoverBackground border border-vscode-input-border transition-colors"
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+/** Bottom section: optional clear-confirm bar, context indicator, textarea, and send button. */
+function ChatFooter({
+  clearConfirmShown,
+  onClearConfirmCancel,
+  onClearConfirm,
+  messagesLength,
+  lastCompletedThinking,
+  isStreaming,
+  isSummarized,
+  input,
+  setInput,
+  onSend,
+  onKeyDown,
+  connectionId,
+}: {
+  clearConfirmShown: boolean;
+  onClearConfirmCancel: () => void;
+  onClearConfirm: () => void;
+  messagesLength: number;
+  lastCompletedThinking: ChatThinking | null;
+  isStreaming: boolean;
+  isSummarized: boolean;
+  input: string;
+  setInput: (value: string) => void;
+  onSend: () => void;
+  onKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
+  connectionId: string | null;
+}) {
+  const placeholder =
+    !connectionId
+      ? "Select a connection first…"
+      : messagesLength > 0
+        ? "Reply…"
+        : "Ask about your database…";
 
-        {messages.map((msg, i) => (
-          <MessageBubble key={`${i}-${msg.timestamp}`} message={msg} />
-        ))}
-
-        {isStreaming && thinking && showThinkingBlock && (
-          <ThinkingBlock thinking={thinking} streamedChunkCount={streamedChunkCount} />
-        )}
-
-        {!isStreaming && lastCompletedThinking && (
-          <CollapsedThinkingBlock thinking={lastCompletedThinking} />
-        )}
-
-        {isStreaming && !showThinkingBlock && (
-          <div className="flex gap-1 pl-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:0ms]" />
-            <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:150ms]" />
-            <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:300ms]" />
-          </div>
-        )}
-        <div ref={bottomRef} />
-      </div>
-
-      <div
-        className="shrink-0"
-        style={{
-          background: "var(--vscode-input-background)",
-          boxShadow: "0 -4px 12px rgba(0,0,0,0.15)",
-        }}
-      >
-        {clearConfirmShown && (
-          <div className="px-3 py-2 flex items-center justify-between gap-3 bg-vscode-input-background/80 border-b border-vscode-input-border">
-            <span className="text-xs text-vscode-foreground">Clear conversation? This cannot be undone.</span>
-            <div className="flex gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => setClearConfirmShown(false)}
-                className="px-2 py-1 rounded text-xs text-vscode-foreground bg-vscode-button-secondaryBackground hover:bg-vscode-button-secondaryHoverBackground"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleClearConfirm}
-                className="px-2 py-1 rounded text-xs text-vscode-button-foreground bg-vscode-button-background hover:bg-vscode-button-hoverBackground"
-              >
-                Clear
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div className="p-3 flex flex-col gap-1.5">
-          {messages.length > 0 && (
-            <div className="inline-flex items-center min-h-[18px] gap-0 self-start">
-              <ContextIndicator
-                usedTokens={lastCompletedThinking?.context?.contextTokens}
-                limitTokens={lastCompletedThinking?.context?.contextLimit}
-                isStreaming={isStreaming}
-              >
-                {isSummarized && (
-                  <span className="inline-flex items-center gap-0.5 shrink-0">
-                    <span
-                      className="h-3.5 w-px min-w-px bg-vscode-descriptionForeground shrink-0 opacity-70"
-                      aria-hidden
-                    />
-                    <span className="text-[10px] text-vscode-descriptionForeground ml-0.5">
-                      Context summarized. Clear chat to start fresh.
-                    </span>
-                  </span>
-                )}
-              </ContextIndicator>
-            </div>
-          )}
-
-          <div className="relative flex-1 min-h-[44px]">
-            <textarea
-              className="w-full min-h-[44px] max-h-[120px] resize-none border border-vscode-input-border bg-vscode-input-background text-vscode-input-foreground text-sm focus:outline-none focus:ring-2 focus:ring-vscode-focusBorder focus:border-transparent overflow-y-auto transition-shadow"
-              style={{ padding: "10px 48px 10px 12px", borderRadius: "12px" }}
-              rows={2}
-              placeholder={
-                !connectionId
-                  ? "Select a connection first…"
-                  : messages.length > 0
-                    ? "Reply…"
-                    : "Ask about your database…"
-              }
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={!connectionId || isStreaming}
-            />
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={!connectionId || isStreaming || !input.trim()}
-              title="Send"
-              aria-label="Send"
-              className={`absolute bottom-2 right-2 w-8 h-8 rounded-lg flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                input.trim()
-                  ? "bg-vscode-button-background text-vscode-button-foreground hover:bg-vscode-button-hoverBackground"
-                  : "bg-vscode-descriptionForeground/30 text-vscode-descriptionForeground"
-              }`}
+  return (
+    <div
+      className="shrink-0"
+      style={{
+        background: "var(--vscode-input-background)",
+        boxShadow: "0 -4px 12px rgba(0,0,0,0.15)",
+      }}
+    >
+      {clearConfirmShown && (
+        <ClearConfirmBar onCancel={onClearConfirmCancel} onConfirm={onClearConfirm} />
+      )}
+      <div className="p-3 flex flex-col gap-1.5">
+        {messagesLength > 0 && (
+          <div className="inline-flex items-center min-h-[18px] gap-0 self-start">
+            <ContextIndicator
+              usedTokens={lastCompletedThinking?.context?.contextTokens}
+              limitTokens={lastCompletedThinking?.context?.contextLimit}
+              isStreaming={isStreaming}
             >
-              <Send size={16} aria-hidden />
-            </button>
+              {isSummarized && (
+                <span className="inline-flex items-center gap-0.5 shrink-0">
+                  <span
+                    className="h-3.5 w-px min-w-px bg-vscode-descriptionForeground shrink-0 opacity-70"
+                    aria-hidden
+                  />
+                  <span className="text-[10px] text-vscode-descriptionForeground ml-0.5">
+                    Context summarized. Clear chat to start fresh.
+                  </span>
+                </span>
+              )}
+            </ContextIndicator>
           </div>
+        )}
+        <div className="relative flex-1 min-h-[44px]">
+          <textarea
+            className="w-full min-h-[44px] max-h-[120px] resize-none border border-vscode-input-border bg-vscode-input-background text-vscode-input-foreground text-sm focus:outline-none focus:ring-2 focus:ring-vscode-focusBorder focus:border-transparent overflow-y-auto transition-shadow"
+            style={{ padding: "10px 48px 10px 12px", borderRadius: "12px" }}
+            rows={2}
+            placeholder={placeholder}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={onKeyDown}
+            disabled={!connectionId || isStreaming}
+          />
+          <button
+            type="button"
+            onClick={onSend}
+            disabled={!connectionId || isStreaming || !input.trim()}
+            title="Send"
+            aria-label="Send"
+            className={`absolute bottom-2 right-2 w-8 h-8 rounded-lg flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+              input.trim()
+                ? "bg-vscode-button-background text-vscode-button-foreground hover:bg-vscode-button-hoverBackground"
+                : "bg-vscode-descriptionForeground/30 text-vscode-descriptionForeground"
+            }`}
+          >
+            <Send size={16} aria-hidden />
+          </button>
         </div>
       </div>
     </div>
