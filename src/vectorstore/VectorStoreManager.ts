@@ -12,13 +12,13 @@ const CONTENT_COLUMN = "content";
 const MIN_ROWS_FOR_VECTOR_INDEX = 256;
 
 /**
- * Options for vector or hybrid search.
+ * Options for hybrid search (full-text + vector with RRF rerank).
  */
 export interface SearchOptions {
-  /** Maximum number of results to return (after rerank if hybrid). */
+  /** Maximum number of results to return after rerank. */
   topK: number;
-  /** Raw query text for hybrid (BM25 + vector) search. If omitted, only vector search is used. */
-  queryText?: string;
+  /** Query text for full-text + vector hybrid search. Required. */
+  queryText: string;
   /** Pre-filter by object type (e.g. only tables or only stored procedures). */
   typeFilter?: SchemaChunk["objectType"];
 }
@@ -182,7 +182,7 @@ export class VectorStoreManager {
       schema: c.schema,
       content: c.content,
       summary: c.summary,
-      embedding: c.embedding instanceof Float32Array ? c.embedding : new Float32Array(c.embedding),
+      embedding: Array.from(c.embedding instanceof Float32Array ? c.embedding : c.embedding),
       crawledAt: c.crawledAt,
     }));
 
@@ -219,11 +219,10 @@ export class VectorStoreManager {
   }
 
   /**
-   * Vector or hybrid search. With queryText, uses LanceDB built-in hybrid search (vector + FTS)
-   * with RRF reranker; otherwise vector-only. Optional typeFilter restricts to one object type.
+   * Hybrid search: LanceDB full-text on query text + vector similarity, merged with RRF reranker.
    * @param connectionId Connection id.
    * @param queryEmbedding Query vector (same dimension as stored embeddings).
-   * @param options topK, optional queryText (for hybrid), optional typeFilter.
+   * @param options topK, queryText (required), optional typeFilter.
    * @returns Top-k chunks; empty if the table does not exist.
    */
   async search(
@@ -235,33 +234,31 @@ export class VectorStoreManager {
     const ctx = await this.getTableIfExists(connectionId);
     if (!ctx) return [];
 
+    const trimmed = queryText.trim();
+    if (trimmed.length === 0) {
+      throw new Error("search requires non-empty queryText");
+    }
+
     const { table } = ctx;
     const whereClause =
       typeFilter != null && ALLOWED_OBJECT_TYPES.has(typeFilter)
         ? `objectType = '${typeFilter}'`
         : undefined;
 
-    if (queryText != null && queryText.trim().length > 0) {
-      if (!this.rrfrerankerPromise) {
-        this.rrfrerankerPromise = lancedb.rerankers.RRFReranker.create(60);
-      }
-      const reranker = await this.rrfrerankerPromise;
-      let hybridQuery = table
-        .query()
-        .fullTextSearch(queryText.trim(), { columns: [CONTENT_COLUMN] })
-        .nearestTo(queryEmbedding)
-        .column(EMBEDDING_COLUMN)
-        .distanceType("cosine")
-        .rerank(reranker)
-        .limit(topK);
-      if (whereClause) hybridQuery = hybridQuery.where(whereClause);
-      const results = await hybridQuery.toArray();
-      return (results as Record<string, unknown>[]).map(rowToChunk);
+    if (!this.rrfrerankerPromise) {
+      this.rrfrerankerPromise = lancedb.rerankers.RRFReranker.create(60);
     }
-
-    let query = table.vectorSearch(queryEmbedding).column(EMBEDDING_COLUMN).distanceType("cosine");
-    if (whereClause) query = query.where(whereClause);
-    const results = await query.limit(topK).toArray();
+    const reranker = await this.rrfrerankerPromise;
+    let hybridQuery = table
+      .query()
+      .fullTextSearch(trimmed, { columns: [CONTENT_COLUMN] })
+      .nearestTo(queryEmbedding)
+      .column(EMBEDDING_COLUMN)
+      .distanceType("cosine")
+      .rerank(reranker)
+      .limit(topK);
+    if (whereClause) hybridQuery = hybridQuery.where(whereClause);
+    const results = await hybridQuery.toArray();
     return (results as Record<string, unknown>[]).map(rowToChunk);
   }
 
