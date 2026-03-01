@@ -111,7 +111,7 @@ export class MessageRouter {
           await this.handleChat(message.payload, post);
           break;
         case "CLEAR_INDEX":
-          // TODO: clear index for connection, post INDEX_CLEARED
+          await this.handleClearIndex(message.payload.connectionId, post);
           break;
         case "GET_INDEX_STATS":
           await this.handleGetIndexStats(message.payload.connectionId, post);
@@ -597,5 +597,13 @@ export class MessageRouter {
   private async handleGetIndexStats(connectionId: string, post: PostMessage): Promise<void> {
     const stats = await this.services.vectorStoreManager.getIndexStats(connectionId);
     post({ type: "INDEX_STATS", payload: { connectionId, stats } });
+  }
+
+  private async handleClearIndex(connectionId: string, post: PostMessage): Promise<void> {
+    await this.services.vectorStoreManager.clearIndex(connectionId);
+    await this.services.connectionManager.removeCrawledConnectionId(connectionId);
+    const crawledIds = await this.services.connectionManager.getCrawledConnectionIds();
+    post({ type: "INDEX_CLEARED", payload: { connectionId } });
+    post({ type: "CRAWLED_CONNECTION_IDS", payload: crawledIds });
   }
 }

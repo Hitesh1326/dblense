@@ -8,13 +8,19 @@
   --vscode-font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
 }
 
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 body {
   font-family: var(--vscode-font-family, -apple-system, sans-serif);
   font-size: var(--vscode-font-size, 13px);
   background-color: var(--vscode-editor-background);
   color: var(--vscode-foreground);
-  margin: 0;
-  padding: 0;
 }
 
 /* Scrollbar styling to match VS Code */
@@ -115,3 +121,4 @@ body {
 .chat-markdown .hljs-comment { color: var(--vscode-symbolIcon-colorForeground, #6a9955); opacity: 0.9; }
 .chat-markdown .hljs-built_in,
 .chat-markdown .hljs-title { color: var(--vscode-symbolIcon-functionForeground, #dcdcaa); }
+

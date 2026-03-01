@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Sidebar } from "./components/Sidebar";
-import { TabBar, MainView } from "./components/TabBar";
 import { ChatPanel } from "./components/ChatPanel";
-import { SchemaGraph } from "./components/SchemaGraph";
 import { AddConnectionModal } from "./components/AddConnectionModal";
 import { IndexInfoModal } from "./components/IndexInfoModal";
 import { useConnections } from "./hooks/useConnections";
@@ -10,13 +8,11 @@ import { useChat } from "./hooks/useChat";
 import { useOllamaStatus } from "./hooks/useOllamaStatus";
 
 /**
- * Root webview UI: sidebar (connections, crawl, index info), main area with TabBar (chat / schema),
- * and modals for adding a connection and viewing index stats. Clears active connection when it
- * is removed from the list; passes crawl/Ollama state and handlers into Sidebar, ChatPanel, and SchemaGraph.
- * @returns Root layout JSX (sidebar, main, modals).
+ * Root webview UI: sidebar (connections, crawl, index info), main chat area, and modals for
+ * adding a connection and viewing index stats. Clears active connection when it is removed
+ * from the list.
  */
 export function App() {
-  const [activeView, setActiveView] = useState<MainView>("chat");
   const [activeConnectionId, setActiveConnectionId] = useState<string | null>(null);
   const [addConnectionModalOpen, setAddConnectionModalOpen] = useState(false);
   const [indexInfoConnectionId, setIndexInfoConnectionId] = useState<string | null>(null);
@@ -90,8 +86,6 @@ export function App() {
       />
 
       <main className="flex-1 flex flex-col overflow-hidden">
-        <TabBar activeView={activeView} onChangeView={setActiveView} />
-
         {!activeConnectionId ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6">
             <p className="text-sm text-vscode-descriptionForeground">
@@ -103,45 +97,28 @@ export function App() {
           </div>
         ) : (
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-            {activeView === "chat" && (
-              <ChatPanel
-                messages={messages}
-                isStreaming={isStreaming}
-                thinking={thinking}
-                showThinkingBlock={showThinkingBlock}
-                lastCompletedThinking={lastCompletedThinking}
-                streamedChunkCount={streamedChunkCount}
-                isSummarized={isSummarized}
-                onSend={sendMessage}
-                onClear={clearHistory}
-                connectionId={activeConnectionId}
-                connectionName={activeConnectionName}
-                isCrawled={isActiveCrawled}
-                onCrawl={() => activeConnectionId && crawlSchema(activeConnectionId)}
-                onCancelCrawl={cancelActiveCrawl}
-                isCrawling={isActiveCrawling}
-                crawlProgress={crawlProgress}
-                ollamaAvailable={ollamaAvailable}
-                ollamaModel={ollamaModel}
-                ollamaModelPulled={ollamaModelPulled}
-                onCheckOllama={checkOllama}
-              />
-            )}
-            {activeView === "schema" && (
-              <SchemaGraph
-                connectionId={activeConnectionId}
-                connectionName={activeConnectionName}
-                isCrawled={isActiveCrawled}
-                onCrawl={() => activeConnectionId && crawlSchema(activeConnectionId)}
-                onCancelCrawl={cancelActiveCrawl}
-                isCrawling={isActiveCrawling}
-                crawlProgress={crawlProgress}
-                ollamaAvailable={ollamaAvailable}
-                ollamaModel={ollamaModel}
-                ollamaModelPulled={ollamaModelPulled}
-                onCheckOllama={checkOllama}
-              />
-            )}
+            <ChatPanel
+              messages={messages}
+              isStreaming={isStreaming}
+              thinking={thinking}
+              showThinkingBlock={showThinkingBlock}
+              lastCompletedThinking={lastCompletedThinking}
+              streamedChunkCount={streamedChunkCount}
+              isSummarized={isSummarized}
+              onSend={sendMessage}
+              onClear={clearHistory}
+              connectionId={activeConnectionId}
+              connectionName={activeConnectionName}
+              isCrawled={isActiveCrawled}
+              onCrawl={() => activeConnectionId && crawlSchema(activeConnectionId)}
+              onCancelCrawl={cancelActiveCrawl}
+              isCrawling={isActiveCrawling}
+              crawlProgress={crawlProgress}
+              ollamaAvailable={ollamaAvailable}
+              ollamaModel={ollamaModel}
+              ollamaModelPulled={ollamaModelPulled}
+              onCheckOllama={checkOllama}
+            />
           </div>
         )}
       </main>

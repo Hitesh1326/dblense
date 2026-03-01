@@ -202,6 +202,7 @@ export function ChatPanel({
   }
 
   const showReindexingBanner = isCrawled && isCrawling && crawlProgress;
+  const isReindexing = Boolean(showReindexingBanner);
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -214,6 +215,7 @@ export function ChatPanel({
       <ChatBody
         messages={messages}
         isStreaming={isStreaming}
+        isReindexing={isReindexing}
         thinking={thinking}
         showThinkingBlock={showThinkingBlock}
         lastCompletedThinking={lastCompletedThinking}
@@ -230,6 +232,7 @@ export function ChatPanel({
         lastCompletedThinking={lastCompletedThinking}
         isStreaming={isStreaming}
         isSummarized={isSummarized}
+        isReindexing={isReindexing}
         input={input}
         setInput={setInput}
         onSend={handleSend}
@@ -303,10 +306,21 @@ function EmptyState({
   );
 }
 
+/** Centered reindexing state: spinner and status text when schema is being re-indexed. */
+function ReindexingState() {
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-3" role="status" aria-live="polite">
+      <Loader2 size={32} className="animate-spin text-vscode-descriptionForeground" aria-hidden />
+      <p className="text-sm text-vscode-descriptionForeground">Reindexing schema…</p>
+    </div>
+  );
+}
+
 /** Scrollable message list: empty state, message bubbles, thinking block or dots, and scroll anchor. */
 function ChatBody({
   messages,
   isStreaming,
+  isReindexing,
   thinking,
   showThinkingBlock,
   lastCompletedThinking,
@@ -317,6 +331,7 @@ function ChatBody({
 }: {
   messages: ChatMessage[];
   isStreaming: boolean;
+  isReindexing: boolean;
   thinking: ChatThinking | null;
   showThinkingBlock: boolean;
   lastCompletedThinking: ChatThinking | null;
@@ -334,7 +349,8 @@ function ChatBody({
 
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-4">
-      {messages.length === 0 && (
+      {messages.length === 0 && isReindexing && <ReindexingState />}
+      {messages.length === 0 && !isReindexing && (
         <EmptyState
           connectionId={connectionId}
           isStreaming={isStreaming}
@@ -403,6 +419,7 @@ function ChatFooter({
   lastCompletedThinking,
   isStreaming,
   isSummarized,
+  isReindexing,
   input,
   setInput,
   onSend,
@@ -416,14 +433,16 @@ function ChatFooter({
   lastCompletedThinking: ChatThinking | null;
   isStreaming: boolean;
   isSummarized: boolean;
+  isReindexing: boolean;
   input: string;
   setInput: (value: string) => void;
   onSend: () => void;
   onKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
   connectionId: string | null;
 }) {
-  const placeholder =
-    !connectionId
+  const placeholder = isReindexing
+    ? "Reindexing schema…"
+    : !connectionId
       ? "Select a connection first…"
       : messagesLength > 0
         ? "Reply…"
@@ -441,7 +460,7 @@ function ChatFooter({
         <ClearConfirmBar onCancel={onClearConfirmCancel} onConfirm={onClearConfirm} />
       )}
       <div className="p-3 flex flex-col gap-1.5">
-        {messagesLength > 0 && (
+        {messagesLength > 0 && !isReindexing && (
           <div className="inline-flex items-center min-h-[18px] gap-0 self-start">
             <ContextIndicator
               usedTokens={lastCompletedThinking?.context?.contextTokens}
@@ -464,19 +483,19 @@ function ChatFooter({
         )}
         <div className="relative flex-1 min-h-[44px]">
           <textarea
-            className="w-full min-h-[44px] max-h-[120px] resize-none border border-vscode-input-border bg-vscode-input-background text-vscode-input-foreground text-sm focus:outline-none focus:ring-2 focus:ring-vscode-focusBorder focus:border-transparent overflow-y-auto transition-shadow"
+            className="w-full min-h-[44px] max-h-[120px] resize-none border border-vscode-input-border bg-vscode-input-background text-vscode-input-foreground text-sm focus:outline-none focus:ring-2 focus:ring-vscode-focusBorder focus:border-transparent overflow-y-auto transition-shadow disabled:opacity-70 disabled:cursor-not-allowed"
             style={{ padding: "10px 48px 10px 12px", borderRadius: "12px" }}
             rows={2}
             placeholder={placeholder}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onKeyDown}
-            disabled={!connectionId || isStreaming}
+            disabled={!connectionId || isStreaming || isReindexing}
           />
           <button
             type="button"
             onClick={onSend}
-            disabled={!connectionId || isStreaming || !input.trim()}
+            disabled={!connectionId || isStreaming || isReindexing || !input.trim()}
             title="Send"
             aria-label="Send"
             className={`absolute bottom-2 right-2 w-8 h-8 rounded-lg flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
