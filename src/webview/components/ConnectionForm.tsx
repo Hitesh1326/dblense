@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { DbDriver } from "../../shared/types";
 import type { DbConnectionConfig } from "../../shared/types";
 import { randomId } from "../utils/randomId";
@@ -7,6 +8,8 @@ import { randomId } from "../utils/randomId";
 interface ConnectionFormProps {
   /** Called with the new connection config and password when the user submits. */
   onAdd: (config: DbConnectionConfig & { password: string }) => void;
+  /** When true, the form is submitting (testing/adding); disable submit and show loading. */
+  addConnectionPending?: boolean;
 }
 
 /** Default port per driver (used when switching driver and as fallback for invalid port). */
@@ -50,7 +53,7 @@ const INITIAL_FORM: ConnectionFormState = {
  * Form for adding a new database connection: driver, host, port, database, username, password, SSL.
  * On submit, builds DbConnectionConfig (with random id), uses default port if port is invalid, and calls onAdd.
  */
-export function ConnectionForm({ onAdd }: ConnectionFormProps) {
+export function ConnectionForm({ onAdd, addConnectionPending = false }: ConnectionFormProps) {
   const [form, setForm] = useState<ConnectionFormState>(INITIAL_FORM);
 
   const handleDriverChange = useCallback((driver: DbDriver) => {
@@ -137,9 +140,17 @@ export function ConnectionForm({ onAdd }: ConnectionFormProps) {
         <div className="flex justify-end">
           <button
             type="submit"
-            className="px-4 py-1.5 rounded bg-vscode-button-background text-vscode-button-foreground text-sm hover:bg-vscode-button-hoverBackground transition-colors"
+            disabled={addConnectionPending}
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded bg-vscode-button-background text-vscode-button-foreground text-sm hover:bg-vscode-button-hoverBackground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Add Connection
+            {addConnectionPending ? (
+              <>
+                <Loader2 size={14} className="shrink-0 animate-spin" aria-hidden />
+                Connecting…
+              </>
+            ) : (
+              "Add Connection"
+            )}
           </button>
         </div>
       </form>

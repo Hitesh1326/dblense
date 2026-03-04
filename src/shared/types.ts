@@ -130,6 +130,7 @@ export type ExtensionToWebviewMessage =
   | { type: "CONNECTIONS_LIST"; payload: DbConnectionConfig[] }
   | { type: "OLLAMA_STATUS"; payload: { available: boolean; model?: string; modelPulled?: boolean } }
   | { type: "CONNECTION_ADDED"; payload: DbConnectionConfig }
+  | { type: "ADD_CONNECTION_RESULT"; payload: { success: boolean; error?: string } }
   | { type: "CONNECTION_REMOVED"; payload: { id: string } }
   | { type: "CONNECTION_TEST_RESULT"; payload: { id: string; success: boolean; error?: string } }
   | { type: "CRAWL_PROGRESS"; payload: CrawlProgress }

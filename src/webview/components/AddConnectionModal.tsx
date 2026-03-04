@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect } from "react";
-import { X } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 import { ConnectionForm } from "./ConnectionForm";
 import { DbConnectionConfig } from "../../shared/types";
+import type { AddConnectionResult } from "../hooks/useConnections";
 
 /** Props for the add-connection modal. */
 interface AddConnectionModalProps {
@@ -11,14 +12,23 @@ interface AddConnectionModalProps {
   onClose: () => void;
   /** Called when the user submits the form with valid connection config and password. */
   onAdd: (config: DbConnectionConfig & { password: string }) => void;
+  /** True while the extension is testing and adding the connection. */
+  addConnectionPending?: boolean;
+  /** Result of the last add attempt (success or error); used to show error and close on success. */
+  addConnectionResult?: AddConnectionResult;
 }
 
 /**
- * Modal for adding a new database connection. Renders a dialog with ConnectionForm;
- * supports Escape to close and clicking the backdrop to close. On successful add,
- * calls onAdd with the config and password then closes.
+ * Modal for adding a new database connection. Tests the connection before adding; only adds on success.
+ * Shows loading while testing/adding and error message if the connection fails.
  */
-export function AddConnectionModal({ isOpen, onClose, onAdd }: AddConnectionModalProps) {
+export function AddConnectionModal({
+  isOpen,
+  onClose,
+  onAdd,
+  addConnectionPending = false,
+  addConnectionResult = null,
+}: AddConnectionModalProps) {
   useEffect(() => {
     if (!isOpen) return;
     const handleEscape = (e: KeyboardEvent) => {
@@ -31,12 +41,13 @@ export function AddConnectionModal({ isOpen, onClose, onAdd }: AddConnectionModa
   const handleAdd = useCallback(
     (config: DbConnectionConfig & { password: string }) => {
       onAdd(config);
-      onClose();
     },
-    [onAdd, onClose]
+    [onAdd]
   );
 
   if (!isOpen) return null;
+
+  const addFailed = addConnectionResult && !addConnectionResult.success;
 
   return (
     <div
@@ -57,14 +68,20 @@ export function AddConnectionModal({ isOpen, onClose, onAdd }: AddConnectionModa
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded hover:bg-vscode-toolbar-hoverBackground text-vscode-foreground"
+            disabled={addConnectionPending}
+            className="p-1 rounded hover:bg-vscode-toolbar-hoverBackground text-vscode-foreground disabled:opacity-50"
             aria-label="Close"
           >
             <X size={16} aria-hidden />
           </button>
         </div>
         <div className="p-4">
-          <ConnectionForm onAdd={handleAdd} />
+          {addFailed && (
+            <div className="mb-4 px-3 py-2 rounded border border-red-500/60 bg-red-500/10 text-red-700 dark:text-red-400 dark:border-red-400/50 dark:bg-red-400/10 text-sm">
+              {addConnectionResult.error ?? "Connection failed"}
+            </div>
+          )}
+          <ConnectionForm onAdd={handleAdd} addConnectionPending={addConnectionPending} />
         </div>
       </div>
     </div>

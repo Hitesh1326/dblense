@@ -105,6 +105,25 @@ export class ConnectionManager {
   }
 
   /**
+   * Tests connectivity for a connection config (e.g. before adding). Does not require the config to be stored.
+   * @param config Connection config to test.
+   * @param password Password for the connection.
+   * @returns { success: true } on success, or { success: false, error } on failure.
+   */
+  async testConnectionConfig(config: DbConnectionConfig, password: string): Promise<{ success: boolean; error?: string }> {
+    const driver = getDriver(config.driver);
+    try {
+      const ok = await driver.testConnection(config, password);
+      if (ok) return { success: true };
+      return { success: false, error: "Connection failed" };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error(`Connection test failed: ${config.label}`, err);
+      return { success: false, error: message };
+    }
+  }
+
+  /**
    * Tests connectivity for a connection using its driver (no schema crawl).
    * @param id Connection id (must exist and have a stored password).
    * @returns { success: true } on success, or { success: false, error } on failure (not found, no password, or driver error).
