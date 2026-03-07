@@ -61,9 +61,7 @@ SchemaSight is designed for teams that cannot or do not want schema understandin
 ## Screenshot
 
 ### Onboarding
-![Guided onboarding flow](assets/onboarding-1.png)
-![Guided onboarding flow](assets/onboarding-2.png)
-![Guided onboarding flow](assets/onboarding-3.png)
+![Verify Ollama and configure your model](assets/onboarding-2.png)
 
 ### Chat
 ![Chat view showing a grounded answer](assets/chat.png)
