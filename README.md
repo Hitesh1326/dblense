@@ -60,12 +60,13 @@ SchemaSight is designed for teams that cannot or do not want schema understandin
 
 ## Screenshot
 
-Add a product screenshot or short GIF here before publishing to the Marketplace.
+### Onboarding
+![Guided onboarding flow](assets/onboarding-1.png)
+![Guided onboarding flow](assets/onboarding-2.png)
+![Guided onboarding flow](assets/onboarding-3.png)
 
-Suggested capture:
-- Sidebar with an indexed connection selected
-- Chat panel showing a grounded answer
-- “How this was answered” expanded
+### Chat
+![Chat view showing a grounded answer](assets/chat.png)
 
 ## Quick Start
 
