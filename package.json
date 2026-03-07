@@ -5,6 +5,10 @@
   "version": "0.0.1",
   "publisher": "hiteshshinde",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Hitesh1326/schemasight.git"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
