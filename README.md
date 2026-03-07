@@ -339,4 +339,4 @@ Project structure:
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE) for details.
