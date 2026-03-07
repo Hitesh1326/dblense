@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Database, AlertTriangle, Check, Lock, Loader2 } from "lucide-react";
 import type { CrawlProgress } from "../../../shared/types";
 import { useCopyFeedback } from "../../hooks/useCopyFeedback";
@@ -173,6 +173,10 @@ export function IndexFirstCard({
   pullingModel,
 }: IndexFirstCardProps) {
   const { copiedWhich, copyWithFeedback } = useCopyFeedback();
+
+  useEffect(() => {
+    onCheckOllama?.();
+  }, [onCheckOllama]);
 
   const derived = getOllamaDerivedState({ ollamaAvailable, ollamaModel, ollamaModelPulled });
   const { isCheckingOllama, modelChosen, isOllamaReady, needsPull, ollamaUnavailable, canCrawl } = derived;
