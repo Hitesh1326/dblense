@@ -2,7 +2,7 @@
   "name": "schemasight",
   "displayName": "SchemaSight",
   "description": "Chat with your database. Locally. VS Code extension for exploring and understanding schemas and stored procedures using local LLMs. SQL Server · PostgreSQL · MySQL. Zero cloud dependency.",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "publisher": "hiteshshinde",
   "license": "MIT",
   "repository": {
