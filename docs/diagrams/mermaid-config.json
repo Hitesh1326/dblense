@@ -1,0 +1,11 @@
+{
+  "theme": "neutral",
+  "themeVariables": {
+    "background": "#ffffff",
+    "mainBkg": "#f8f8f8",
+    "nodeBorder": "#cccccc",
+    "clusterBkg": "#f0f0f0",
+    "titleColor": "#333333",
+    "edgeLabelBackground": "#ffffff"
+  }
+}
