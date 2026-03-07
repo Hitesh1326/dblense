@@ -8,6 +8,8 @@ SchemaSight is a VS Code extension for developers who need to make sense of unfa
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.85+-blue?logo=visualstudiocode)](https://code.visualstudio.com/)
+[![Ollama](https://img.shields.io/badge/Ollama-local%20LLM-black?logo=ollama)](https://ollama.ai)
+[![Visual Studio Marketplace](https://img.shields.io/visual-studio-marketplace/v/your-publisher.schemasight?logo=visualstudiocode)](https://marketplace.visualstudio.com/items?itemName=your-publisher.schemasight)
 
 ## Why SchemaSight
 
